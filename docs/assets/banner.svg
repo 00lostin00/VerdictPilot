@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="VerdictPilot 算法学习与证据诊断工作台">
+  <rect width="1280" height="360" rx="24" fill="#f6f3ed"/><path d="M816 0h464v360H816z" fill="#eeebe4"/>
+  <g fill="none" stroke="#ded9cf"><path d="M816 60h464M816 120h464M816 180h464M816 240h464M816 300h464M876 0v360M936 0v360M996 0v360M1056 0v360M1116 0v360M1176 0v360M1236 0v360"/></g>
+  <rect x="58" y="57" width="58" height="58" rx="16" fill="#ed6545"/><path d="m72 75 13 22 12-20" fill="none" stroke="#fffaf4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="103" cy="72" r="5" fill="#191b20"/>
+  <g font-family="Segoe UI,Microsoft YaHei,Arial,sans-serif" fill="#191b20"><text x="134" y="98" font-size="36" font-weight="700">VerdictPilot</text><text x="58" y="184" font-size="40" font-weight="700">把理解，落实到代码。</text><text x="59" y="230" font-size="20" fill="#6d6c70">课程学习 · C++ 训练 · 检索依据 · 错题复盘</text><text x="60" y="305" font-size="14" fill="#ad4934" letter-spacing="2">LEARN / BUILD / VERIFY / REFLECT</text></g>
+  <rect x="874" y="63" width="340" height="235" rx="14" fill="#202228"/><circle cx="896" cy="85" r="4" fill="#ed6545"/><circle cx="911" cy="85" r="4" fill="#e0af6a"/><circle cx="926" cy="85" r="4" fill="#77a789"/>
+  <g font-family="Consolas,monospace" font-size="16"><text x="898" y="126" fill="#e9e6df">solution.cpp</text><text x="898" y="168" fill="#ea9b81">compile → run → inspect</text><text x="898" y="206" fill="#acb6ae">expected   5</text><text x="898" y="235" fill="#acb6ae">actual     5</text><text x="898" y="273" fill="#9bc9ac">✓ evidence saved</text></g>
+</svg>

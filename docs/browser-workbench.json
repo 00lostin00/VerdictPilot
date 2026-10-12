@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-12",
+  "browser": "Chrome",
+  "desktop_viewport": [
+    1440,
+    1000
+  ],
+  "mobile_viewport": [
+    390,
+    844
+  ],
+  "checks": [
+    "course quiz and persisted note",
+    "combined problem filters and sorting",
+    "template restore and undo",
+    "draft keyboard save",
+    "code file download",
+    "wrong answer case evidence",
+    "mistake creation and review",
+    "correct solution and completed filter",
+    "recent run restore",
+    "offline diagnosis and trace",
+    "knowledge and global search",
+    "project evidence",
+    "profile and archive export",
+    "mobile dashboard and training layout"
+  ],
+  "javascript_errors": 0,
+  "result": "passed",
+  "execution_scope": "fixed repository examples in isolated temporary local service"
+}

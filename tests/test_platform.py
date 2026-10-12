@@ -174,6 +174,10 @@ def test_run_recovery_profile_and_knowledge(settings):
         assert "BFS" in client.get("/v1/knowledge/documents/graphs").json()["body"]
         assert client.get("/v1/knowledge/documents/not-indexed").status_code == 404
         assert client.get("/assets/app.js").status_code == 200
+        for name in ("logo.svg", "favicon.svg"):
+            response = client.get(f"/assets/{name}")
+            assert response.status_code == 200
+            assert response.headers["content-type"].split(";")[0] == "image/svg+xml"
     with TestClient(create_app(settings)) as client:
         interrupted = client.get(f"/v1/runs/{run_id}?learner_id=alice").json()
         assert interrupted["status"] == "interrupted"

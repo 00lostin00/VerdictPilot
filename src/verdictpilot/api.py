@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 import time
 from contextlib import asynccontextmanager
 
@@ -18,6 +19,8 @@ from .services import AppServices
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or Settings.from_env()
+    # Windows registry MIME values can override the standard SVG media type.
+    mimetypes.add_type("image/svg+xml", ".svg")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

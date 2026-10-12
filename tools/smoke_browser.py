@@ -77,12 +77,36 @@ def main() -> None:
                 )
                 page.goto(url + "/#problems")
                 expect(page.locator(".problem-card")).to_have_count(12)
+                page.locator("#completion-filter").select_option("未提交")
+                expect(page.locator("#problem-count")).to_contain_text("12 / 12")
+                page.locator("#problem-sort").select_option("难度优先")
+                page.locator("#problem-search").fill("不存在的题目")
+                expect(page.locator(".problem-card")).to_have_count(0)
+                page.get_by_role("button", name="清除筛选", exact=True).first.click()
+                expect(page.locator(".problem-card")).to_have_count(12)
                 page.locator("#problem-search").fill("二分")
                 expect(page.locator(".problem-card")).to_have_count(2)
                 page.goto(url + "/#lab/sum")
                 expect(page.locator("#code-editor")).to_be_visible()
+                original_draft = page.locator("#code-editor").input_value()
+                page.locator("#code-editor").fill(original_draft + "\n// draft preserved")
+                page.get_by_role("button", name="恢复模板", exact=True).click()
+                expect(page.locator("#undo-template")).to_be_visible()
+                page.get_by_role("button", name="撤销恢复", exact=True).click()
+                expect(page.locator("#code-editor")).to_have_value(
+                    original_draft + "\n// draft preserved"
+                )
+                page.locator("#code-editor").fill(original_draft)
+                page.locator("#code-editor").focus()
+                page.keyboard.press("Control+s")
+                expect(page.locator("#draft-status")).to_contain_text("草稿已保存")
+                with page.expect_download() as code_download:
+                    page.get_by_role("button", name="下载代码", exact=True).click()
+                code_download.value.save_as(str(args.output / "solution.cpp"))
+                assert (args.output / "solution.cpp").read_text(encoding="utf-8") == original_draft
                 page.locator("#submit-code").click()
                 expect(page.locator("#editor-results")).to_contain_text("答案错误", timeout=30000)
+                expect(page.locator("#toast")).not_to_be_visible()
                 page.screenshot(path=str(args.output / "training.png"), full_page=True)
                 page.get_by_role("button", name="写入错题本", exact=True).click()
                 page.locator("#mistake-form textarea").fill(
@@ -104,6 +128,16 @@ def main() -> None:
                 expect(page.locator("#editor-results")).to_contain_text(
                     "5 / 5 用例通过", timeout=30000
                 )
+                page.goto(url + "/#problems")
+                # Filters intentionally survive navigation. Clear the earlier binary-search query
+                # before checking the independently completed A+B problem.
+                expect(page.locator("#problem-search")).to_have_value("二分")
+                page.get_by_role("button", name="清除筛选", exact=True).first.click()
+                expect(page.locator(".problem-card")).to_have_count(12)
+                page.locator("#completion-filter").select_option("已通过")
+                expect(page.locator(".problem-card")).to_have_count(1)
+                page.goto(url + "/#lab/sum")
+                expect(page.locator("#editor-results")).to_contain_text("5 / 5 用例通过")
                 page.goto(url + "/#diagnose")
                 expect(page.locator("#diagnose-form")).to_be_visible()
                 page.locator('#diagnose-form button[type="submit"]').click()
@@ -160,6 +194,7 @@ def main() -> None:
                 assert mobile_page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (
                     "Mobile dashboard overflows"
                 )
+                mobile_page.evaluate("window.scrollTo({top: 0, behavior: 'instant'})")
                 mobile_page.screenshot(path=str(args.output / "mobile.png"), full_page=True)
                 mobile_page.get_by_role("button", name="展开导航").click()
                 mobile_page.get_by_role("link", name="题目训练", exact=True).click()
