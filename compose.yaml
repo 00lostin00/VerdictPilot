@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    init: true
+    restart: unless-stopped
+    environment:
+      VERDICTPILOT_PROVIDER: ${VERDICTPILOT_PROVIDER:-offline}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.5}
+      VERDICTPILOT_EXECUTION_BACKEND: disabled
+    volumes:
+      - verdictpilot-data:/app/data
+
+volumes:
+  verdictpilot-data:

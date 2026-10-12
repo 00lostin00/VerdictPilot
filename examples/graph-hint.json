@@ -1,0 +1,7 @@
+{
+  "title": "网格最短路",
+  "statement": "给定 n x m 网格，0 可通行、1 为障碍，求左上角到右下角的最少步数。每次只能上下左右移动。",
+  "mode": "hint",
+  "provider": "offline",
+  "session_id": "demo"
+}

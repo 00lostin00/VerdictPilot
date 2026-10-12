@@ -1,0 +1,1118 @@
+{
+  "version": "2026.10.1",
+  "tracks": [
+    {
+      "id": "foundations",
+      "title": "竞赛思维与程序验证",
+      "subtitle": "先建立正确性，再追求速度",
+      "icon": "terminal",
+      "color": "teal",
+      "outcome": "从约束推导复杂度，构造边界与反例"
+    },
+    {
+      "id": "structures",
+      "title": "数据结构与图论",
+      "subtitle": "用不变量组织复杂问题",
+      "icon": "network",
+      "color": "blue",
+      "outcome": "理解前缀和、二分、BFS 与堆的适用边界"
+    },
+    {
+      "id": "dynamic",
+      "title": "动态规划专题",
+      "subtitle": "让状态定义成为解题证据",
+      "icon": "layers",
+      "color": "purple",
+      "outcome": "掌握状态语义、遍历方向和路径重建"
+    },
+    {
+      "id": "backend",
+      "title": "Python 与后端工程",
+      "subtitle": "把脚本变成可靠的服务",
+      "icon": "code",
+      "color": "orange",
+      "outcome": "完成接口契约、事务与后台任务设计"
+    },
+    {
+      "id": "agents",
+      "title": "检索与 Agent 系统",
+      "subtitle": "模型、工具和证据形成闭环",
+      "icon": "spark",
+      "color": "teal",
+      "outcome": "实现 BM25 基线、工具契约与记忆边界"
+    },
+    {
+      "id": "production",
+      "title": "评测、安全与交付",
+      "subtitle": "用可复现结果证明工程能力",
+      "icon": "shield",
+      "color": "blue",
+      "outcome": "建立回归集、观测任务、检查部署与信任边界"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "complexity",
+      "track_id": "foundations",
+      "title": "从数据规模反推算法",
+      "description": "把 n、时间和内存限制转化为算法选择，而不是背复杂度标签。",
+      "minutes": 25,
+      "prerequisites": [],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n把 n、时间和内存限制转化为算法选择，而不是背复杂度标签。\n\n## 核心推导\n\nO(n²) 的危险来自操作数量：n=200000 时，二重循环约执行 4×10¹⁰ 次。O(n log n) 也不是必然通过，排序比较、哈希退化、测试组总规模和常数都要考虑。先估计状态数×每状态工作量，再检查数据类型与内存：两百万个 long long 约需 16 MB，不计容器开销。\n\n## 一个最小实现\n\n```\nlong long operations = 1LL * n * n;\n// total_n 是所有测试组规模之和，不是单组最大 n\n```\n\n## 容易误判的地方\n\n“使用二分就是 O(log n)”可能忽略每次判定内又做了 O(n) 工作，总复杂度实际是 O(n log V)。复杂度说明必须包含判定函数。\n\n## 回到 VerdictPilot\n\n阅读 knowledge/complexity.md，再对照 sandbox.py 的编译与运行超时。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "为 n=200000 的数组问题写出 O(n²)、O(n log n)、O(n) 三种操作估算。",
+          "为自己的一个解法列出时间与内存预算，写进本课笔记。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "二分答案进行了 log V 次，每次检查遍历 n 个元素，总复杂度是？",
+          "options": [
+            "O(log V)",
+            "O(n)",
+            "O(n log V)",
+            "O(V)"
+          ],
+          "answer": 2,
+          "explanation": "外层迭代次数乘以内层判定代价。"
+        },
+        {
+          "question": "多个测试组的 n 上界相同，估计总工作量还需要什么？",
+          "options": [
+            "只看最大 n",
+            "各组规模总和及组数",
+            "变量名称",
+            "编译器版本"
+          ],
+          "answer": 1,
+          "explanation": "总耗时是各组耗时之和，最大规模不能替代总规模。"
+        }
+      ],
+      "related_problem": "two-sum"
+    },
+    {
+      "id": "invariants",
+      "track_id": "foundations",
+      "title": "循环不变量与正确性",
+      "description": "用初始化、保持和终止三个步骤说明程序为什么正确。",
+      "minutes": 30,
+      "prerequisites": [
+        "complexity"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n用初始化、保持和终止三个步骤说明程序为什么正确。\n\n## 核心推导\n\n不变量是在每次循环关键位置成立的命题。例如前缀和处理前 i 个元素后，sum 等于它们的总和。证明先看循环前命题是否成立，再看一次更新是否保持命题，最后把终止状态映射到题目答案。能跑样例只能排除部分错误，不能替代证明。\n\n## 一个最小实现\n\n```\nlong long sum = 0;\nfor (int i = 0; i < n; ++i) {\n    // 循环前：sum = a[0] + ... + a[i-1]\n    sum += a[i];\n}\n```\n\n## 容易误判的地方\n\n不变量写成“算法正确”没有可检查内容。必须指出变量含义、索引范围和更新顺序。\n\n## 回到 VerdictPilot\n\n在 OfflineCoach 的下一步提示中寻找“不变量”，解释为什么检索建议不能证明用户代码正确。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "给数组最大值程序写出三个证明步骤。",
+          "把错误初始化 max=0 改用首元素，构造全负数反例。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "循环不变量证明不包含哪项？",
+          "options": [
+            "初始化",
+            "保持",
+            "终止与答案对应",
+            "必须运行全部输入"
+          ],
+          "answer": 3,
+          "explanation": "证明用一般状态推导，而不是枚举全部输入。"
+        },
+        {
+          "question": "最大值初始化为 0 最容易被什么数据击穿？",
+          "options": [
+            "全部正数",
+            "全负数",
+            "升序正数",
+            "单个正数"
+          ],
+          "answer": 1,
+          "explanation": "当全部元素小于 0 时，错误的初值会成为输出。"
+        }
+      ],
+      "related_problem": "array-max"
+    },
+    {
+      "id": "boundaries",
+      "track_id": "foundations",
+      "title": "边界、溢出与最小反例",
+      "description": "用有目的的测试定位 WA，避免只增加随机样例。",
+      "minutes": 30,
+      "prerequisites": [
+        "invariants"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n用有目的的测试定位 WA，避免只增加随机样例。\n\n## 核心推导\n\n边界测试围绕约束发生变化的位置设计：n=1、空区间、全部相同、全负数、答案恰好在首尾。整数溢出要发生在运算前就扩宽类型；long long z = a*b 仍可能先用 int 相乘。最小反例减少无关状态，让错误更新更容易被观察。\n\n## 一个最小实现\n\n```\nlong long product = 1LL * a * b;\n// 不要写 long long product = a * b; 当 a,b 是 int 时乘法仍是 int\n```\n\n## 容易误判的地方\n\n输出不一致时，先核对输入协议、换行与取模，再判断算法根因。相同症状可以来自完全不同的错误。\n\n## 回到 VerdictPilot\n\n阅读 sandbox.py 的 _normalize_output 和 CaseResult，理解标准输出比较的边界。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "给 A+B 补负数、零和超过 int 上界的测试。",
+          "记录一个最小失败输入、实际输出、期望输出和修复说明。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "a,b 是 int，哪种表达式会先扩宽乘法？",
+          "options": [
+            "long long z=a*b",
+            "long long z=1LL*a*b",
+            "int z=a*b",
+            "auto z=a*b"
+          ],
+          "answer": 1,
+          "explanation": "1LL 参与运算后，乘法按 long long 进行。"
+        },
+        {
+          "question": "最小反例主要帮助什么？",
+          "options": [
+            "保证算法 AC",
+            "减少状态以定位错误",
+            "替代复杂度分析",
+            "提高训练分数"
+          ],
+          "answer": 1,
+          "explanation": "最小化输入让导致失败的状态变化更清晰。"
+        }
+      ],
+      "related_problem": "range-sum"
+    },
+    {
+      "id": "differential",
+      "track_id": "foundations",
+      "title": "对拍与回归测试",
+      "description": "用可信的慢解验证快解，把发现的失败输入变成长期证据。",
+      "minutes": 40,
+      "prerequisites": [
+        "boundaries"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n用可信的慢解验证快解，把发现的失败输入变成长期证据。\n\n## 核心推导\n\n对拍需要三件东西：小规模正确基线、可重复随机生成器、失败输入保存。慢解必须独立实现，不能与快解共用同一个可疑逻辑。固定 seed 用于复现；随机测试找到差异后，再缩小输入并加入固定回归集。\n\n## 一个最小实现\n\n```\nrng = random.Random(2026)\nfor _ in range(1000):\n    case = generate_small_case(rng)\n    assert fast(case) == brute_force(case), case\n```\n\n## 容易误判的地方\n\n随机 1000 次无差异只是测试证据，不是形式证明。生成器覆盖范围过窄时会遗漏极值与结构性错误。\n\n## 回到 VerdictPilot\n\n扩展 evals/cases.jsonl；指标必须来自固定版本的数据，不要先写目标通过率。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "为“两数之和”写 O(n²) 慢解，对比哈希解。",
+          "固定 seed，保存一个故意注入重复元素错误时的反例。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "为什么对拍基线应独立实现？",
+          "options": [
+            "缩短代码",
+            "避免共享同一个错误",
+            "保证更快",
+            "不用测试"
+          ],
+          "answer": 1,
+          "explanation": "相同 bug 可能让两个实现给出一致的错误答案。"
+        },
+        {
+          "question": "发现随机反例后下一步最有价值的是？",
+          "options": [
+            "丢弃继续跑",
+            "保存并加入回归集",
+            "只报告样例数",
+            "更换所有框架"
+          ],
+          "answer": 1,
+          "explanation": "固定失败输入使修复可验证，也防止以后回归。"
+        }
+      ],
+      "related_problem": "two-sum"
+    },
+    {
+      "id": "prefix",
+      "track_id": "structures",
+      "title": "前缀和与区间边界",
+      "description": "把重复求和化为两个前缀的差，明确下标协议。",
+      "minutes": 25,
+      "prerequisites": [
+        "boundaries"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n把重复求和化为两个前缀的差，明确下标协议。\n\n## 核心推导\n\n用 s[0]=0、s[i]=a[1]+...+a[i]，闭区间 [l,r] 的和为 s[r]-s[l-1]。0 基、左闭右开表示则是 s[r]-s[l]。先选一种协议，再让输入转换与循环保持一致。构建 O(n)，每个查询 O(1)，多次查询总体 O(n+q)。\n\n## 一个最小实现\n\n```\nvector<long long> s(n+1, 0);\nfor(int i=1;i<=n;i++) s[i]=s[i-1]+a[i];\ncout << s[r]-s[l-1] << \"\\n\";\n```\n\n## 容易误判的地方\n\n前缀数组用 int 可能溢出；l=1 检验是否保留了 s[0]。区间长度为 1 时答案应恰好等于 a[l]。\n\n## 回到 VerdictPilot\n\n在训练工作台对照每个测试的输出，而不是只看最终颜色。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "完成区间和题，补首元素、全区间、单元素查询。",
+          "解释为什么 s[r]-s[l] 会漏掉左端点。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "1 基闭区间 [l,r] 的和是？",
+          "options": [
+            "s[r]-s[l]",
+            "s[r]-s[l-1]",
+            "s[r+1]-s[l-1]",
+            "s[l]-s[r]"
+          ],
+          "answer": 1,
+          "explanation": "s[l-1] 包含区间左端点之前的所有元素。"
+        },
+        {
+          "question": "n 个元素和 q 个查询的总复杂度是？",
+          "options": [
+            "O(nq)",
+            "O(n+q)",
+            "O(q log n)",
+            "O(n²)"
+          ],
+          "answer": 1,
+          "explanation": "一次建表 O(n)，每次查询 O(1)。"
+        }
+      ],
+      "related_problem": "range-sum"
+    },
+    {
+      "id": "binary-search",
+      "track_id": "structures",
+      "title": "二分查找的区间契约",
+      "description": "让每一次收缩都保持答案仍在搜索区间内。",
+      "minutes": 30,
+      "prerequisites": [
+        "invariants"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n让每一次收缩都保持答案仍在搜索区间内。\n\n## 核心推导\n\nlower_bound 寻找第一个不小于 x 的元素。使用 [l,r) 且 r=n，条件 a[mid]<x 时令 l=mid+1，否则 r=mid。终止 l=r，n 表示不存在。答案二分还需要单调谓词：若某阈值可行，更大的阈值是否也可行？不满足单调就不能二分。\n\n## 一个最小实现\n\n```\nint l=0,r=n;\nwhile(l<r){\n  int mid=l+(r-l)/2;\n  if(a[mid]<x) l=mid+1; else r=mid;\n}\n```\n\n## 容易误判的地方\n\n混用闭区间与半开区间容易死循环。先写每次更新后区间长度是否严格下降，再检查元素重复与答案不存在。\n\n## 回到 VerdictPilot\n\n用代码诊断模式检查死循环；超时证据需要结合循环终止条件解释。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "完成第一个不小于 x 的位置，补全部小于与重复元素。",
+          "写出循环不变量：左侧均小于 x，右侧均不小于 x。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "lower_bound 在没有匹配位置时返回？",
+          "options": [
+            "0",
+            "n",
+            "n-1",
+            "任意下标"
+          ],
+          "answer": 1,
+          "explanation": "半开区间实现使用 n 作为尾后位置。"
+        },
+        {
+          "question": "答案二分最关键的前提是？",
+          "options": [
+            "数组名字简短",
+            "判定具有单调性",
+            "使用递归",
+            "结果一定存在"
+          ],
+          "answer": 1,
+          "explanation": "只有可行性随阈值单调变化时，区间排除才成立。"
+        }
+      ],
+      "related_problem": "lower-bound"
+    },
+    {
+      "id": "bfs",
+      "track_id": "structures",
+      "title": "BFS 与最短路不变量",
+      "description": "在无权图中，第一次发现节点时已经得到最短距离。",
+      "minutes": 35,
+      "prerequisites": [
+        "invariants"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n在无权图中，第一次发现节点时已经得到最短距离。\n\n## 核心推导\n\nBFS 按距离层扩展队列。起点距离 0；从距离 d 的节点发现邻居时赋值 d+1，并立即标记访问后入队。若到出队才标记，同一节点可能重复入队，扩大队列并破坏分析。边有不同权重时，层数不再等于路径代价，应考虑 Dijkstra 或其他方法。\n\n## 一个最小实现\n\n```\ndist[start]=0; q.push(start);\nwhile(!q.empty()){\n  int u=q.front(); q.pop();\n  for(int v:adj[u]) if(dist[v]==-1){\n    dist[v]=dist[u]+1; q.push(v);\n  }\n}\n```\n\n## 容易误判的地方\n\n网格起点或终点为障碍时应直接无解；访问条件必须同时检查行、列范围。不要把坐标交换错误当作算法失效。\n\n## 回到 VerdictPilot\n\n读取 knowledge/graphs.md，再观察图论提示的来源片段。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "完成网格最短路，补 1×1、不可达和起点阻塞。",
+          "解释为何入队标记保证每个节点只入队一次。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "普通 BFS 保证最短路的图是？",
+          "options": [
+            "任意带权图",
+            "无权或边权相同的图",
+            "含负环的图",
+            "只能是树"
+          ],
+          "answer": 1,
+          "explanation": "BFS 的层数等于边数，只有同权时能对应总代价。"
+        },
+        {
+          "question": "访问标记最好发生在？",
+          "options": [
+            "第一次入队时",
+            "任意一次出队后",
+            "队列清空时",
+            "输出前"
+          ],
+          "answer": 0,
+          "explanation": "发现时标记防止重复入队。"
+        }
+      ],
+      "related_problem": "grid-bfs"
+    },
+    {
+      "id": "heap",
+      "track_id": "structures",
+      "title": "堆、旧状态与 Dijkstra",
+      "description": "理解优先队列为什么不能替代距离数组。",
+      "minutes": 35,
+      "prerequisites": [
+        "bfs"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n理解优先队列为什么不能替代距离数组。\n\n## 核心推导\n\nDijkstra 每次弹出当前最小候选距离，并松弛相邻边。优先队列可保留多个同节点条目；弹出时若 d!=dist[u]，该条目已经过时，应跳过。算法要求边权非负：负权会使已确认的节点以后再次被改善，破坏贪心证明。\n\n## 一个最小实现\n\n```\nif(d != dist[u]) continue;\nfor(auto [v,w]:adj[u]){\n  if(dist[v]>d+w){\n    dist[v]=d+w; pq.push({dist[v],v});\n  }\n}\n```\n\n## 容易误判的地方\n\n使用最大堆会把弹出顺序反过来；INF 与加法也要考虑溢出。必须先知道输入是否含负边。\n\n## 回到 VerdictPilot\n\n为知识检索补充 Dijkstra 的反例文档，再测试查询是否命中。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "写一个三个节点、含旧队列状态的最短路例子。",
+          "构造负边使贪心证明不成立，并说明应换用什么条件下的算法。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "弹出旧距离条目时应？",
+          "options": [
+            "覆盖新距离",
+            "跳过",
+            "清空整个图",
+            "无条件输出"
+          ],
+          "answer": 1,
+          "explanation": "距离数组保存当前最优值，过时条目不应重复扩展。"
+        },
+        {
+          "question": "Dijkstra 通常要求？",
+          "options": [
+            "所有边权为 1",
+            "所有边权非负",
+            "图必须连通",
+            "没有重复边"
+          ],
+          "answer": 1,
+          "explanation": "非负边保证已确定的最小距离不会被以后降低。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "dp-state",
+      "track_id": "dynamic",
+      "title": "状态定义、转移与初始化",
+      "description": "先写状态语义，再写递推代码。",
+      "minutes": 35,
+      "prerequisites": [
+        "invariants"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n先写状态语义，再写递推代码。\n\n## 核心推导\n\ndp[i] 的含义必须包含处理范围与最优目标。台阶问题中 dp[i] 表示恰好到第 i 级的走法数，最后一步来自 i-1 或 i-2；因此 dp[i]=dp[i-1]+dp[i-2]。dp[0]=1 表示空路径，不是随意设定。状态含义决定初值和返回位置。\n\n## 一个最小实现\n\n```\ndp[0]=1;\nfor(int i=1;i<=n;i++){\n  dp[i]=dp[i-1];\n  if(i>=2) dp[i]+=dp[i-2];\n}\n```\n\n## 容易误判的地方\n\n“恰好达到”与“不超过”是不同目标，初始化不能互换。不可达状态应使用单独的哨兵或合法性检查。\n\n## 回到 VerdictPilot\n\n对照 knowledge/dynamic-programming.md 的状态检查清单。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "完成台阶方案数，手算 n=0、1、2、3。",
+          "用一句话说明每个 dp 下标的语义，写进笔记。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "dp[0]=1 在走法计数中通常表示？",
+          "options": [
+            "数组占位",
+            "一条空路径",
+            "无穷大",
+            "不可达"
+          ],
+          "answer": 1,
+          "explanation": "空路径作为后续转移的起点，其计数是 1。"
+        },
+        {
+          "question": "写 DP 最先应明确的是？",
+          "options": [
+            "用哪个框架",
+            "状态的具体语义",
+            "变量长度",
+            "输出颜色"
+          ],
+          "answer": 1,
+          "explanation": "状态含义决定转移、初始化和最终答案。"
+        }
+      ],
+      "related_problem": "stairs"
+    },
+    {
+      "id": "knapsack",
+      "track_id": "dynamic",
+      "title": "01 背包与遍历方向",
+      "description": "理解倒序为什么限制每个物品只能使用一次。",
+      "minutes": 40,
+      "prerequisites": [
+        "dp-state"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n理解倒序为什么限制每个物品只能使用一次。\n\n## 核心推导\n\n一维 01 背包中 dp[c] 表示已处理物品在容量不超过 c 时的最大价值。倒序枚举 c，确保 dp[c-w] 还属于上一物品层；正序会读取当前层刚更新的状态，等价于允许重复选同一物品。容量约束与价值约束决定哪一维更合适。\n\n## 一个最小实现\n\n```\nfor(auto [w,v]:items)\n  for(int c=W;c>=w;c--)\n    dp[c]=max(dp[c],dp[c-w]+v);\n```\n\n## 容易误判的地方\n\n“恰好装满”需要 dp[0]=0，其余不可达；不能直接全零。物品体积为零时还需重新分析输入约束。\n\n## 回到 VerdictPilot\n\n在错题本把错误分类为建模或实现，并写清状态来源。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "完成 01 背包，构造一个物品重量 2、容量 4 的例子。",
+          "把容量循环改为正序，观察错误答案并保存反例。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "一维 01 背包容量一般按什么方向遍历？",
+          "options": [
+            "倒序",
+            "正序",
+            "任意",
+            "只访问最大容量"
+          ],
+          "answer": 0,
+          "explanation": "倒序保证转移读取上一层的状态。"
+        },
+        {
+          "question": "正序更新可能造成什么？",
+          "options": [
+            "每物品只能用一次",
+            "当前物品被重复使用",
+            "数组自动扩容",
+            "必然编译错误"
+          ],
+          "answer": 1,
+          "explanation": "同一层更新会被后续容量再次读取。"
+        }
+      ],
+      "related_problem": "knapsack-01"
+    },
+    {
+      "id": "lis",
+      "track_id": "dynamic",
+      "title": "最长上升子序列：从二次到对数",
+      "description": "分清子序列、子串和 tails 数组的含义。",
+      "minutes": 40,
+      "prerequisites": [
+        "dp-state",
+        "binary-search"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n分清子序列、子串和 tails 数组的含义。\n\n## 核心推导\n\nO(n²) 基线中 dp[i] 是以 a[i] 结尾的最长严格上升子序列长度。优化后的 tails[len-1] 表示长度为 len 的上升子序列的最小可能末尾，它不保证整体就是原数组中的一条真实路径。严格上升用 lower_bound；允许相等时更新规则不同。\n\n## 一个最小实现\n\n```\nvector<int> tails;\nfor(int x:a){\n  auto it=lower_bound(tails.begin(),tails.end(),x);\n  if(it==tails.end()) tails.push_back(x); else *it=x;\n}\n```\n\n## 容易误判的地方\n\n重复元素检验严格与非严格的区别。若要输出路径，必须记录前驱和最后位置，不能直接输出 tails。\n\n## 回到 VerdictPilot\n\n将慢解与快解的差异保存在固定训练用例中。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "完成严格 LIS，补全相同元素与严格降序。",
+          "用 O(n²) 实现对拍优化实现。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "严格上升序列处理重复值时一般用？",
+          "options": [
+            "lower_bound",
+            "upper_bound",
+            "只排序原数组",
+            "不做比较"
+          ],
+          "answer": 0,
+          "explanation": "相等值替换已有末尾而不扩展长度。"
+        },
+        {
+          "question": "tails 数组一定是原序列的一条子序列吗？",
+          "options": [
+            "一定",
+            "不一定",
+            "只要无重复就一定",
+            "它与长度无关"
+          ],
+          "answer": 1,
+          "explanation": "每个长度的最小末尾可能来自不同路径。"
+        }
+      ],
+      "related_problem": "lis"
+    },
+    {
+      "id": "dp-reconstruct",
+      "track_id": "dynamic",
+      "title": "从最优值重建方案",
+      "description": "保存决策证据，使最优结果可以被复核。",
+      "minutes": 35,
+      "prerequisites": [
+        "knapsack",
+        "lis"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n保存决策证据，使最优结果可以被复核。\n\n## 核心推导\n\n最优值与实际方案是不同输出。二维背包可从 (n,W) 比较相邻层，发现是否选择第 i 个物品，再更新容量。LIS 可在更新末尾位置时保存前驱。重建后应检查每个选择合法、容量不超限且总价值等于最优值。\n\n## 一个最小实现\n\n```\nwhile(i>0){\n  if(dp[i][c] != dp[i-1][c]){\n    chosen.push_back(i); c-=weight[i];\n  }\n  --i;\n}\n```\n\n## 容易误判的地方\n\n一维 DP 直接记录一个 parent[c] 可能被后续物品覆盖，形成不合法重复选择。重建信息必须与状态版本一致。\n\n## 回到 VerdictPilot\n\n把方案合法性设计成 grader，而不仅比较最优值。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "为二维 01 背包重建选择的物品列表。",
+          "验证输出方案重量、价值和是否重复选择。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "重建后需要检查什么？",
+          "options": [
+            "只看输出长度",
+            "约束合法且目标值一致",
+            "只看运行时间",
+            "只看代码风格"
+          ],
+          "answer": 1,
+          "explanation": "方案证据应满足题目约束并实现报告的目标值。"
+        },
+        {
+          "question": "一维 DP 的 parent 为什么可能出错？",
+          "options": [
+            "Python 不支持",
+            "后续更新覆盖了状态版本",
+            "数组一定太小",
+            "循环必须递归"
+          ],
+          "answer": 1,
+          "explanation": "决策的来源状态可能已被覆盖，失去对应关系。"
+        }
+      ],
+      "related_problem": "knapsack-01"
+    },
+    {
+      "id": "python-contracts",
+      "track_id": "backend",
+      "title": "Python 类型与数据契约",
+      "description": "让请求在进入业务逻辑前就被验证。",
+      "minutes": 35,
+      "prerequisites": [
+        "boundaries"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n让请求在进入业务逻辑前就被验证。\n\n## 核心推导\n\n类型注解帮助理解与静态检查，运行时输入仍需校验。Pydantic 模型把字段长度、枚举范围和列表上限放在接口边界；错误返回 422 而不是在深层代码崩溃。业务约束例如不存在的题目应返回 404，队列满应返回 429，不能统统变成 500。\n\n## 一个最小实现\n\n```\nclass Submission(BaseModel):\n    code: str = Field(min_length=1, max_length=60000)\n# 输入契约与业务结果分开表示\n```\n\n## 容易误判的地方\n\n忽略字段验证会让超大请求拖垮服务；仅靠前端限制也无效，因为客户端可以直接调用 API。\n\n## 回到 VerdictPilot\n\n阅读 src/verdictpilot/platform_models.py 与 api.py 的验证边界。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "阅读 CodeSubmission，提交空代码与超长代码检查 422。",
+          "列出一次提交需要区分的四种错误状态。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "前端限制长度是否足够？",
+          "options": [
+            "足够",
+            "后端仍需验证",
+            "只需要提示文案",
+            "关闭 API 即可"
+          ],
+          "answer": 1,
+          "explanation": "直接调用接口可以绕过前端。"
+        },
+        {
+          "question": "合法格式但题目不存在通常返回？",
+          "options": [
+            "200",
+            "404",
+            "422",
+            "自动成功"
+          ],
+          "answer": 1,
+          "explanation": "格式有效但资源不存在属于 404。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "sqlite",
+      "track_id": "backend",
+      "title": "SQLite 事务与可持久化进度",
+      "description": "让刷新、重启和并发请求不会丢掉学习证据。",
+      "minutes": 40,
+      "prerequisites": [
+        "python-contracts"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n让刷新、重启和并发请求不会丢掉学习证据。\n\n## 核心推导\n\n事务把一组相关写入合并为原子操作，例如测验记录与最佳分数一起提交。WAL 让读写并发更顺畅，但 SQLite 仍只有一个写者，需要短事务与 busy timeout。唯一键 (learner_id,lesson_id) 避免重复进度，UPSERT 更新最佳成绩时必须取 max。\n\n## 一个最小实现\n\n```\nwith connection:\n    connection.execute(\"INSERT INTO attempts ...\")\n    connection.execute(\"UPDATE progress SET best_score=MAX(best_score, ?)\", (score,))\n```\n\n## 容易误判的地方\n\n跨线程共享默认 connection 会违反线程约束。每个操作独立连接，事务里不要等待外部模型或编译器。\n\n## 回到 VerdictPilot\n\n阅读 platform_store.py 的 record_quiz 与 connect。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "测验先得 100 再得低分，检查最佳成绩保持 100。",
+          "关闭服务再重启，检查笔记与草稿仍存在。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "事务内应该避免什么？",
+          "options": [
+            "短 SQL",
+            "等待模型或编译器",
+            "唯一键",
+            "参数化查询"
+          ],
+          "answer": 1,
+          "explanation": "长外部等待会扩大锁占用并影响其他请求。"
+        },
+        {
+          "question": "最佳成绩更新应使用？",
+          "options": [
+            "覆盖成最近成绩",
+            "max(旧成绩,新成绩)",
+            "一直设为 100",
+            "只看前端缓存"
+          ],
+          "answer": 1,
+          "explanation": "最佳成绩不能被较低的后续分数降低。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "jobs",
+      "track_id": "backend",
+      "title": "后台任务、背压与任务状态",
+      "description": "让编译等待进入队列，网页接口继续响应。",
+      "minutes": 45,
+      "prerequisites": [
+        "sqlite"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n让编译等待进入队列，网页接口继续响应。\n\n## 核心推导\n\nPOST 提交返回任务 ID 与 202，客户端轮询读取状态：queued→running→completed 或 failed。线程池限制并行度，但默认队列可能无上限，所以还需有界容量；满时返回 429。服务重启后遗留任务必须标记 interrupted，不能永久显示运行中。\n\n## 一个最小实现\n\n```\ncapacity = threading.BoundedSemaphore(16)\nif not capacity.acquire(blocking=False):\n    raise QueueFullError()\n# worker 的 finally 中释放容量\n```\n\n## 容易误判的地方\n\nasync def 不会自动让同步编译非阻塞。同步工作直接占用事件循环会让健康检查和其他用户请求一起等待。\n\n## 回到 VerdictPilot\n\n阅读 platform_service.py 的容量控制、finally 和 platform_store.py 的恢复逻辑。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "提交一个较慢的程序，同时请求 /health，检查仍能快速响应。",
+          "解释线程池并行数与总队列容量为什么是两个限制。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "async 函数里直接做同步编译会怎样？",
+          "options": [
+            "自动变成后台任务",
+            "阻塞事件循环",
+            "自动限流",
+            "自动恢复重启"
+          ],
+          "answer": 1,
+          "explanation": "async 只在 await 可让出执行时才有并发收益。"
+        },
+        {
+          "question": "队列满时合适的反馈是？",
+          "options": [
+            "无限排队",
+            "429 并提示稍后重试",
+            "伪造成功",
+            "删掉历史任务"
+          ],
+          "answer": 1,
+          "explanation": "明确背压比无限积压更可控。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "api-tests",
+      "track_id": "backend",
+      "title": "接口测试与可重复环境",
+      "description": "检查状态变化和错误边界，而不是只断言页面能打开。",
+      "minutes": 40,
+      "prerequisites": [
+        "jobs"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n检查状态变化和错误边界，而不是只断言页面能打开。\n\n## 核心推导\n\n测试使用临时数据库和可控 runner，覆盖提交→等待→读取结果→错题保存→复习更新。契约测试检查字段与错误状态，业务测试检查分数、所有权和证据约束。真实编译器集成测试单独验证固定题库参考解，不用无网络桩冒充模型质量评测。\n\n## 一个最小实现\n\n```\nwith TestClient(create_app(settings)) as client:\n    response = client.post(\"/v1/problems/sum/submit\", json={\"code\": code})\n    assert response.status_code == 202\n```\n\n## 容易误判的地方\n\n测试若依赖个人数据库或外部 API，重跑结果可能变化。临时数据与固定输入是可靠回归的基础。\n\n## 回到 VerdictPilot\n\n使用 uv run --frozen pytest 与 ruff check，记录实际输出。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "阅读 tests/test_platform.py，找出一个防止跨学习档案访问的断言。",
+          "故意把测验答案长度改错，观察测试能否发现错误。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "固定离线桩能证明真实模型诊断质量吗？",
+          "options": [
+            "能",
+            "不能，只能验证接口与流程",
+            "等于完整 benchmark",
+            "可以写入泛化指标"
+          ],
+          "answer": 1,
+          "explanation": "真实模型质量必须由真实运行与独立评测验证。"
+        },
+        {
+          "question": "业务测试最应关注？",
+          "options": [
+            "函数名字",
+            "真实状态与约束",
+            "CSS 类名",
+            "实现的每一行"
+          ],
+          "answer": 1,
+          "explanation": "有意义的测试验证行为，而不是复制实现。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "bm25",
+      "track_id": "agents",
+      "title": "BM25：可解释的检索基线",
+      "description": "理解词频、逆文档频率与文档长度如何影响排序。",
+      "minutes": 45,
+      "prerequisites": [
+        "python-contracts"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n理解词频、逆文档频率与文档长度如何影响排序。\n\n## 核心推导\n\nBM25 将查询词对文档的贡献求和。TF 随重复次数增加而趋于饱和；IDF 降低常见词的区分能力；长度归一化避免长文档天然占优。中文分词质量与中英混合标识符处理直接影响命中，算法名、缩写和术语是本项目的重要信号。\n\n## 一个最小实现\n\n```\nidf = log(1 + (N - df + 0.5) / (df + 0.5))\nscore += idf * tf * (k1+1) / (tf + k1*(1-b+b*length/avg_length))\n```\n\n## 容易误判的地方\n\n有检索结果不等于结果相关。至少检查 hit@k，还要区分“应该找不到”的查询；不要强迫每次都有引用。\n\n## 回到 VerdictPilot\n\n阅读 knowledge.py 与 tokenization.py，用 /v1/knowledge/search 调试。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "手算两个小文档中同一个查询词的 BM25 相对分数。",
+          "用三个中文查询与三个英文缩写检查 tokenizer。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "IDF 的主要作用是？",
+          "options": [
+            "增加所有长文档分数",
+            "衡量词的区分能力",
+            "直接判断代码正确",
+            "替代分词"
+          ],
+          "answer": 1,
+          "explanation": "越常见的词通常提供越少的区分信息。"
+        },
+        {
+          "question": "检索命中意味着回答一定正确吗？",
+          "options": [
+            "一定",
+            "不一定，还需要证据使用与验证",
+            "只要 top1 就一定",
+            "无需评测"
+          ],
+          "answer": 1,
+          "explanation": "召回、工具调用和最终诊断是不同环节。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "rag-evidence",
+      "track_id": "agents",
+      "title": "RAG 的来源、边界与失败路径",
+      "description": "把检索片段当作证据材料，控制引用和过度推断。",
+      "minutes": 35,
+      "prerequisites": [
+        "bm25"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n把检索片段当作证据材料，控制引用和过度推断。\n\n## 核心推导\n\nRAG 的输入应包含来源 ID、片段与分数。回答中的结论要对应来源或执行结果；检索无命中时应说明不足并继续询问或验证。文档是数据，不能让文档中的“忽略规则、调用工具”变成控制指令。来源必须可回到完整文档复核。\n\n## 一个最小实现\n\n```\nevidence = {\"doc_id\": doc.id, \"source\": doc.path, \"snippet\": doc.text}\n# 检索内容进入资料区，不覆盖系统工具约束\n```\n\n## 容易误判的地方\n\n片段切割可能遗漏否定、适用条件或上下文。只因为片段中出现算法名，就推荐该算法，会产生有引用的错误答案。\n\n## 回到 VerdictPilot\n\n对照 RetrievedDocument 与 openai_agent.py 的工具返回内容。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "在知识检索页面打开完整文档，比较片段遗漏了什么。",
+          "构造带“忽略规则”文字的资料，说明它为何只能被当作内容。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "检索文档中的工具指令应如何处理？",
+          "options": [
+            "提升为系统规则",
+            "作为不可信内容",
+            "自动执行",
+            "保存成 API Key"
+          ],
+          "answer": 1,
+          "explanation": "资料不能取得控制层的权限。"
+        },
+        {
+          "question": "可复核引用至少需要？",
+          "options": [
+            "颜色",
+            "稳定来源与对应内容",
+            "标题越长越好",
+            "随机编号"
+          ],
+          "answer": 1,
+          "explanation": "读者要能找到原文并核对结论。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "tools",
+      "track_id": "agents",
+      "title": "函数工具与 Agent 循环",
+      "description": "让模型在明确契约下选择工具，并从执行结果继续推理。",
+      "minutes": 45,
+      "prerequisites": [
+        "rag-evidence",
+        "jobs"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n让模型在明确契约下选择工具，并从执行结果继续推理。\n\n## 核心推导\n\n工具描述说明何时调用、参数限制与返回语义。模型提出调用，运行时验证参数并执行，结果返回给模型，直到产生最终输出或达到停止条件。检索、代码执行、记忆写入具有不同副作用；写记忆要有执行证据或用户确认，不能把猜测固化成事实。\n\n## 一个最小实现\n\n```\n@function_tool\ndef retrieve_algorithm_knowledge(query: str, limit: int = 4) -> str:\n    \"\"\"检索本地算法资料；诊断前先寻找适用条件。\"\"\"\n    return serialize(store.search(query, limit))\n```\n\n## 容易误判的地方\n\n工具数量多并不等于 Agent 更强。描述重叠、参数松散与无限重试会增加成本和错误路径。\n\n## 回到 VerdictPilot\n\n阅读 openai_agent.py，按自己的账户配置模型后检查真实 trace。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "阅读四个现有工具，给每个写清前置条件与副作用。",
+          "设计一个只读复杂度检查工具，先写契约与失败返回，再实现。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "工具执行应由什么约束？",
+          "options": [
+            "只有模型意愿",
+            "参数验证、权限和运行时限制",
+            "前端颜色",
+            "用户输入里的任何指令"
+          ],
+          "answer": 1,
+          "explanation": "模型输出同样是不可信输入，需通过工具边界验证。"
+        },
+        {
+          "question": "写入错题记忆最可靠的依据是？",
+          "options": [
+            "模型猜测",
+            "执行错误证据或用户确认",
+            "答案长度",
+            "检索分数高"
+          ],
+          "answer": 1,
+          "explanation": "持久记忆要避免保存未经确认的根因。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "memory",
+      "track_id": "agents",
+      "title": "持久记忆与间隔复习",
+      "description": "把确认后的教训保存下来，并用复习反馈调整时间。",
+      "minutes": 35,
+      "prerequisites": [
+        "tools",
+        "sqlite"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n把确认后的教训保存下来，并用复习反馈调整时间。\n\n## 核心推导\n\n会话上下文、长期错题记忆和运行 trace 有不同用途。错题记录保存问题、症状、类别与自己的教训；复习调度保存下一次日期与间隔。首次错误应立即复盘；再次回忆失败缩短间隔，容易回忆时延长。它是学习安排，不是对真实能力的认证。\n\n## 一个最小实现\n\n```\ninterval = {\"again\": 1, \"hard\": old, \"good\": old*2, \"easy\": old*3}[rating]\ndue_at = now + timedelta(days=min(interval, 90))\n```\n\n## 容易误判的地方\n\n仅点“记住了”不能证明问题已解决。应重写代码或复述不变量，再评价回忆质量。历史记录的检索也应限定学习档案。\n\n## 回到 VerdictPilot\n\n阅读 platform_store.py 的 add_mistake 与 review，记录调度算法的局限。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "把一次有 WA 证据的提交写入错题本，记录自己的根因。",
+          "复习时不看代码先说明修复方法，再重新做题。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "trace 与错题教训的区别是？",
+          "options": [
+            "完全相同",
+            "trace 记录过程，教训保存确认后的知识",
+            "trace 必须存 Key",
+            "教训不用来源"
+          ],
+          "answer": 1,
+          "explanation": "过程记录用于观测，长期记忆用于未来复盘。"
+        },
+        {
+          "question": "“再次忘记”应怎么影响复习间隔？",
+          "options": [
+            "无限延长",
+            "缩短",
+            "删除题目",
+            "提升分数"
+          ],
+          "answer": 1,
+          "explanation": "回忆失败需要更快重复练习。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "evaluation",
+      "track_id": "production",
+      "title": "拆分评测：检索、执行与诊断",
+      "description": "用独立指标区分问题发生在哪一层。",
+      "minutes": 45,
+      "prerequisites": [
+        "differential",
+        "rag-evidence"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n用独立指标区分问题发生在哪一层。\n\n## 核心推导\n\n检索 hit@3 衡量目标文档是否进入前三；执行分类准确率衡量 runner 是否识别 CE、WA、RE、TLE；最终诊断需独立检查根因与修复。样例通过率不能代表题库泛化能力，固定小回归集只证明特定行为未退化。数据版本、样本构成和评分规则应一起记录。\n\n## 一个最小实现\n\n```\nreport = {\"dataset_version\": \"2026-10\", \"cases\": 30,\n          \"retrieval_hit_at_3\": hits/queries,\n          \"repair_pass_rate\": repaired_passed/repair_cases}\n```\n\n## 容易误判的地方\n\n只挑容易通过的样例会制造漂亮数字。真实失败与无结果也应计入分母，桩测试单独报告。\n\n## 回到 VerdictPilot\n\n阅读 evals.py 与 docs/EVAL_RESULTS.md，保留指标的解释边界。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "写出 30 条自有错误代码数据的分类计划。",
+          "为三层评测分别定义分母、成功条件和失败记录。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "hit@3 测量什么？",
+          "options": [
+            "根因一定正确",
+            "目标文档是否位于前三",
+            "代码是否 AC",
+            "模型成本"
+          ],
+          "answer": 1,
+          "explanation": "它只衡量检索召回，不评判最终诊断。"
+        },
+        {
+          "question": "真实模型超时样本应？",
+          "options": [
+            "从结果删除",
+            "按规则计入失败并保留",
+            "改成成功",
+            "用桩补齐"
+          ],
+          "answer": 1,
+          "explanation": "隐藏失败会让指标偏离真实表现。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "observability",
+      "track_id": "production",
+      "title": "调用轨迹、延迟与错误恢复",
+      "description": "让每次失败都有可定位的阶段和可复现的输入。",
+      "minutes": 40,
+      "prerequisites": [
+        "jobs",
+        "tools"
+      ],
+      "level": "基础",
+      "body": "## 这一课要解决什么\n\n让每次失败都有可定位的阶段和可复现的输入。\n\n## 核心推导\n\n一次诊断应有 run_id，阶段事件包括开始、检索结束、记忆读取、执行结束和最终回答。延迟要区分排队、编译、测试与模型耗时；P95 比平均值更能反映尾部体验。日志记录必要元数据，避免 Key 与无关个人数据。任务失败返回可理解信息，详细堆栈留在服务日志。\n\n## 一个最小实现\n\n```\ntrace.emit(\"tool.cpp_runner.completed\", status=report.status, case_count=len(report.cases))\n# run_id 将前端记录、执行结果与事件关联\n```\n\n## 容易误判的地方\n\n“请求失败”无法定位问题；但把原始密钥或完整敏感请求打印出来也不可取。观测信息要有目的。\n\n## 回到 VerdictPilot\n\n阅读 tracing.py 和平台运行详情，观察没有调用的阶段是否仍被错误宣称。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "在运行记录页面定位一条诊断，沿 run_id 找到各阶段。",
+          "区分排队等待与执行时间，设计 P50/P95 统计。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "run_id 的作用是？",
+          "options": [
+            "提高模型智力",
+            "关联同一请求的证据与事件",
+            "替代测试",
+            "作为管理员密码"
+          ],
+          "answer": 1,
+          "explanation": "统一标识可以跨阶段追踪请求。"
+        },
+        {
+          "question": "平均延迟很低但少数请求极慢，还应看？",
+          "options": [
+            "P95 等尾延迟",
+            "字体大小",
+            "只看总数",
+            "隐藏慢请求"
+          ],
+          "answer": 0,
+          "explanation": "分位数暴露用户体验中的长尾。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "sandbox",
+      "track_id": "production",
+      "title": "执行边界：本机、容器与不可信输入",
+      "description": "准确说明限制覆盖了什么，也说明没有覆盖什么。",
+      "minutes": 45,
+      "prerequisites": [
+        "jobs"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n准确说明限制覆盖了什么，也说明没有覆盖什么。\n\n## 核心推导\n\n本地执行是在宿主机运行用户程序，只适合自用可信代码。受限 Docker 后端通过禁网、非 root、只读根文件系统、CPU/内存/进程限制收窄风险，但并不等于生产级恶意代码隔离。超时、输出上限、进程树清理与凭证隔离应分别检查。\n\n## 一个最小实现\n\n```\ndocker run --network none --read-only --cpus 1 --memory 256m \\\n  --pids-limit 64 --security-opt no-new-privileges ...\n```\n\n## 容易误判的地方\n\n在 subprocess 完成后才截断 stdout，并不能防止运行过程中内存被超大输出耗尽。本地教学模式必须明确边界。\n\n## 回到 VerdictPilot\n\n阅读 docs/THREAT_MODEL.md；不要将本地服务端口暴露给不可信网络。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "逐条检查 sandbox.py 与 sandbox/Dockerfile 的限制。",
+          "写出公开部署前还要验证的隔离、鉴权与资源治理。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "本地 runner 是否适合陌生用户上传恶意代码？",
+          "options": [
+            "适合",
+            "不适合",
+            "只要加 CSS 就适合",
+            "只要 API 叫 sandbox 就适合"
+          ],
+          "answer": 1,
+          "explanation": "宿主机执行缺少可靠隔离。"
+        },
+        {
+          "question": "Docker 资源限制能自动等同生产级隔离吗？",
+          "options": [
+            "可以",
+            "不能，仍需完整威胁模型",
+            "只要禁网就可以",
+            "不用维护"
+          ],
+          "answer": 1,
+          "explanation": "隔离边界还依赖宿主、内核、权限与部署设计。"
+        }
+      ],
+      "related_problem": null
+    },
+    {
+      "id": "delivery",
+      "track_id": "production",
+      "title": "交付、版本与项目答辩",
+      "description": "把运行方法、架构选择、评测证据和局限组成完整作品。",
+      "minutes": 40,
+      "prerequisites": [
+        "evaluation",
+        "observability",
+        "sandbox",
+        "api-tests"
+      ],
+      "level": "进阶",
+      "body": "## 这一课要解决什么\n\n把运行方法、架构选择、评测证据和局限组成完整作品。\n\n## 核心推导\n\n交付要能让另一台机器按文档重建环境：锁定依赖、迁移数据库、持久化数据卷、检查健康接口并说明执行后端。答辩围绕取舍：为什么先 BM25，为什么把提交排队，为什么进度按测验记录，怎样验证性能和恢复。每个指标都要有复现命令和数据版本。\n\n## 一个最小实现\n\n```\nuv sync --frozen --extra dev\nuv run --frozen pytest\nuv run --frozen verdictpilot serve\n# 实际执行结果与系统限制一起写入报告\n```\n\n## 容易误判的地方\n\n页面很多不代表工程能力强。能解释关键取舍、演示失败恢复并提供真实测量，比功能名称列表更有说服力。\n\n## 回到 VerdictPilot\n\n按 README 和 docs/PLATFORM.md 重建环境，再展示一条完整学习闭环。",
+      "exercise": {
+        "title": "把理解变成证据",
+        "steps": [
+          "导出学习证据与运行记录，写五分钟演示脚本。",
+          "给当前平台设计一次容量测试与一次进程重启测试，报告真实结果。"
+        ]
+      },
+      "quiz": [
+        {
+          "question": "项目指标最需要配套什么？",
+          "options": [
+            "夸张标题",
+            "固定数据、评分规则和复现命令",
+            "页面数量",
+            "截图滤镜"
+          ],
+          "answer": 1,
+          "explanation": "指标需要能被独立复现。"
+        },
+        {
+          "question": "答辩应该重点解释？",
+          "options": [
+            "每个 CSS 属性",
+            "设计取舍、证据与限制",
+            "只念功能名称",
+            "宣称生产完美"
+          ],
+          "answer": 1,
+          "explanation": "理解系统行为与限制比堆砌名词更能证明能力。"
+        }
+      ],
+      "related_problem": null
+    }
+  ]
+}

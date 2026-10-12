@@ -1,0 +1,15 @@
+{
+  "title": "A + B 调试示例",
+  "statement": "读取两个整数并输出它们的和。",
+  "code": "#include <iostream>\nint main() { long long a, b; std::cin >> a >> b; std::cout << a - b << '\\n'; }",
+  "test_cases": [
+    {
+      "name": "positive",
+      "input": "2 3\n",
+      "expected_output": "5\n"
+    }
+  ],
+  "mode": "diagnose",
+  "provider": "offline",
+  "session_id": "demo"
+}

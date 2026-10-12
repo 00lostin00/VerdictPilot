@@ -1,0 +1,7 @@
+{"id":"rag-bfs","kind":"retrieval","query":"网格最短路 BFS 入队 visited","expected_doc_id":"graphs"}
+{"id":"rag-dp","kind":"retrieval","query":"01 背包 状态 转移 容量倒序","expected_doc_id":"dynamic-programming"}
+{"id":"rag-segtree","kind":"retrieval","query":"区间修改 懒标记 pushdown 线段树","expected_doc_id":"segment-tree"}
+{"id":"rag-wa","kind":"retrieval","query":"程序样例输出不一致 如何构造最小反例","expected_doc_id":"debugging"}
+{"id":"cpp-pass","kind":"execution","source_code":"#include <iostream>\nint main(){long long a,b;if(std::cin>>a>>b)std::cout<<a+b<<'\\n';}","test_cases":[{"name":"sample","input":"2 3\n","expected_output":"5\n"}],"expected_status":"passed"}
+{"id":"cpp-wa","kind":"execution","source_code":"#include <iostream>\nint main(){long long a,b;if(std::cin>>a>>b)std::cout<<a-b<<'\\n';}","test_cases":[{"name":"sample","input":"2 3\n","expected_output":"5\n"}],"expected_status":"wrong_answer"}
+{"id":"cpp-ce","kind":"execution","source_code":"#include <iostream>\nint main(){ std::cout << missing_symbol; }","test_cases":[{"name":"compile","input":"","expected_output":""}],"expected_status":"compile_error"}

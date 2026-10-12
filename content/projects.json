@@ -1,0 +1,53 @@
+{
+  "version": "2026.10.1",
+  "projects": [
+    {
+      "id": "retrieval-engine", "title": "可评测的检索引擎", "category": "RAG / Retrieval", "duration": "2–3 周", "icon": "book", "color": "teal",
+      "description": "从词法基线到混合检索，证明每次改动是否提高召回，而不是直接堆向量数据库。",
+      "architecture": "文档入库 → 分块与来源标识 → BM25 基线 → 查询集评测 → 向量或混合召回 → rerank 对比",
+      "body": "## 交付目标\n\n实现可重复建索引、查询、回溯来源和评测的 Python 服务。使用自己的算法或工程文档，保留一套不参与调参的测试查询。\n\n## 必须解释的取舍\n\n分块长度如何影响完整语义？中文分词如何影响术语召回？为什么同一测试集不能反复用于调参？新增向量召回后，改善了哪些失败查询、增加了多少延迟与成本？\n\n## 建议目录\n\n```\nretrieval-engine/\n  ingest.py\n  search.py\n  eval.py\n  data/queries.jsonl\n  reports/baseline.json\n  tests/\n```\n\n## 最终验收\n\n另一台机器能从原始文档重新建索引并复现报告。对至少五条失败查询解释具体原因。所有百分比写出分母与数据版本。",
+      "milestones": [
+        {"id": "dataset", "title": "建立文档与查询契约", "tasks": ["准备至少 30 篇自有文档，给每段内容分配稳定 ID 和来源。", "标注至少 60 条查询，区分单一答案、多来源答案和无答案查询。", "按训练、验证和测试拆分，记录版本及划分方法。"], "evidence": "提交文档清单、查询集格式和数据集版本。", "metrics": ["documents", "queries"]},
+        {"id": "baseline", "title": "实现词法检索基线", "tasks": ["实现 tokenizer、BM25 与 Top-k 排序。", "评测 hit@3、MRR 与查询 P95 延迟。", "保存逐查询结果，不只保存汇总数字。"], "evidence": "提供固定查询集上的 baseline 报告和复现命令。", "metrics": ["hit_at_3", "mrr", "p95_ms"]},
+        {"id": "comparison", "title": "验证一次检索改进", "tasks": ["选择分块、术语扩展、向量召回或 rerank 中的一种改进。", "保持测试集不变，记录配置与新增成本。", "分析至少五条改善或退化的查询。"], "evidence": "提供同一数据版本上的对照报告及失败案例。", "metrics": ["hit_at_3", "p95_ms"]},
+        {"id": "service", "title": "作为服务交付", "tasks": ["提供入库、查询、文档回溯接口，验证非法参数。", "补接口测试与索引重建测试。", "写出从零运行方法、架构取舍与指标局限。"], "evidence": "提交仓库版本、测试报告和演示请求。", "metrics": ["tests_passed"]}
+      ]
+    },
+    {
+      "id": "counterexample-agent", "title": "反例驱动的代码诊断 Agent", "category": "Agent / Verification", "duration": "3–4 周", "icon": "spark", "color": "purple",
+      "description": "用慢解、随机生成与反例缩减形成闭环，让诊断能由执行证据复核。",
+      "architecture": "题面契约 → 算法检索 → 候选程序 → 暴力基线 → 随机对拍 → 最小反例 → 修复与回归",
+      "body": "## 交付目标\n\n在当前 VerdictPilot 上增加只处理自有题型的对拍工具。先支持数组与网格两类输入，再设计停止条件和失败反馈。\n\n## 必须解释的取舍\n\n生成器怎样覆盖结构性错误？慢解正确性怎样验证？反例缩减怎样保持输入合法？模型诊断与实际修复成功应该如何分别评分？\n\n## 建议目录\n\n```\nsrc/verdictpilot/differential.py\nsrc/verdictpilot/reducer.py\nevals/counterexamples.jsonl\ntests/test_reducer.py\n```\n\n## 最终验收\n\n对至少 30 份自写错解保留原代码、失败输入、原输出、期望输出、修复代码和最终验证记录。模型失败和无结果也计入分母。",
+      "milestones": [
+        {"id": "oracle", "title": "建立可信的慢解与生成器", "tasks": ["为两个题型独立实现小数据暴力基线。", "定义输入约束，生成器能固定 seed。", "用已知正确程序与手算例验证基线。"], "evidence": "提供 seed、生成器参数和基线测试。", "metrics": ["generator_cases", "oracle_tests"]},
+        {"id": "reducer", "title": "发现并缩减反例", "tasks": ["发现输出差异后保存完整输入。", "通过删元素、缩小数值或网格进行合法缩减。", "每次缩减重新验证差异仍存在。"], "evidence": "提供缩减前后样例和执行证据。", "metrics": ["counterexamples", "reduction_ratio"]},
+        {"id": "agent-loop", "title": "接入工具与停止条件", "tasks": ["设计对拍工具参数、执行权限和错误类型。", "限制生成次数、总耗时与模型重试。", "不能无证据宣称已找到根因或已经通过全部测试。"], "evidence": "提供真实 run_id、工具事件与停止原因。", "metrics": ["tool_success_rate", "p95_ms"]},
+        {"id": "evaluation", "title": "评测诊断与修复", "tasks": ["建立至少 30 份自有错解，分开 WA、CE、RE、TLE。", "独立评判根因描述和修复后的测试结果。", "记录失败、耗时与模型费用，避免选择性报告。"], "evidence": "提供逐样本 grader 结果、数据版本和最终报告。", "metrics": ["cases", "diagnosis_accuracy", "repair_pass_rate"]}
+      ]
+    },
+    {
+      "id": "durable-runtime", "title": "可恢复的任务运行服务", "category": "Backend / Reliability", "duration": "2–3 周", "icon": "terminal", "color": "orange",
+      "description": "把当前进程内队列推进到幂等、可取消、可恢复的任务系统，并测量实际容量。",
+      "architecture": "请求校验 → 幂等键 → 持久队列 → worker 租约 → 状态转换 → 取消与恢复 → 容量与尾延迟观测",
+      "body": "## 交付目标\n\n为当前平台设计下一版任务运行服务。可以先用 SQLite 实现租约和原子认领，再根据压测结果决定是否需要外部队列。\n\n## 必须解释的取舍\n\n幂等键属于业务请求还是执行尝试？取消如何处理已启动的子进程？租约到期为何可能造成重复执行？重试时哪些副作用不能重复？\n\n## 最终验收\n\n固定并发输入下报告接收率、拒绝率、排队 P95、执行 P95 和失败数量。主动终止 worker 后，证明任务不会永久卡住，也不会把中断误标为通过。当前平台已有界队列和中断记录，是这项工程的起点。",
+      "milestones": [
+        {"id": "state-machine", "title": "定义状态机与幂等契约", "tasks": ["列出合法状态转换与拒绝条件。", "同一幂等键重复提交返回同一任务。", "将业务任务与执行尝试拆开保存。"], "evidence": "提供状态图、表结构和重复请求测试。", "metrics": ["contract_tests"]},
+        {"id": "durability", "title": "原子认领与租约恢复", "tasks": ["worker 在事务中认领任务并更新租约。", "模拟崩溃、超时和租约竞争。", "为有副作用工具设计重复执行防护。"], "evidence": "提供重启前后数据库状态及恢复测试。", "metrics": ["recovery_tests", "orphan_jobs"]},
+        {"id": "cancellation", "title": "取消、限流与资源清理", "tasks": ["取消运行任务时清理进程树。", "限制并行与队列容量并返回明确背压。", "验证无限循环与大量输出不会无限占用资源。"], "evidence": "提供取消和资源边界测试报告。", "metrics": ["cleanup_tests"]},
+        {"id": "load-test", "title": "测量容量与尾延迟", "tasks": ["固定硬件、输入分布和并发级别。", "分别记录排队与执行耗时。", "报告饱和后拒绝率，说明容量扩展瓶颈。"], "evidence": "提供压测脚本、原始结果和环境说明。", "metrics": ["requests", "rejection_rate", "queue_p95_ms", "execution_p95_ms"]}
+      ]
+    },
+    {
+      "id": "evaluation-console", "title": "Agent 评测与观测控制台", "category": "Evaluation / Observability", "duration": "2–3 周", "icon": "chart", "color": "blue",
+      "description": "设计分层 grader、失败队列和成本报告，让模型迭代能够被独立检查。",
+      "architecture": "版本化数据 → 多配置运行 → 轨迹与成本 → 分层 grader → 失败聚类 → 对照报告与回归门槛",
+      "body": "## 交付目标\n\n用当前运行记录作为起点，把数据集版本、模型配置、工具事件、最终回答和 grader 结果关联起来。允许同一数据集比较两个配置。\n\n## 必须解释的取舍\n\n规则 grader 与人工评分适用哪些任务？LLM grader 的偏差怎样检查？如何避免同一模型既生成又未经校准地评判答案？缺失 trace 或 API 超时如何进入统计？\n\n## 最终验收\n\n报告召回、工具选择、执行分类、诊断准确率、修复通过率、P50/P95 延迟和单次费用。至少人工审阅十个模型错误，区分提示词、检索、工具和数据问题。",
+      "milestones": [
+        {"id": "schema", "title": "关联版本与运行证据", "tasks": ["定义数据集、配置、run、grader 的关联字段。", "每条记录包含失败或停止原因。", "成本缺失时明确标记，不能默认为零费用。"], "evidence": "提供记录 schema 与真实样例。", "metrics": ["record_count", "trace_coverage"]},
+        {"id": "graders", "title": "实现独立分层评分", "tasks": ["实现检索、工具和输出三个独立 grader。", "对不确定诊断安排人工复核。", "对 grader 本身编写正负例与边界测试。"], "evidence": "提供评分规则、grader 测试和人工校准记录。", "metrics": ["grader_tests", "calibration_cases"]},
+        {"id": "comparison", "title": "比较两个配置", "tasks": ["保持数据集版本与评分规则一致。", "逐样本记录改善、退化与相同结果。", "同时报告延迟、费用和错误，不只报告准确率。"], "evidence": "提供两个配置的逐样本对照报告。", "metrics": ["diagnosis_accuracy", "p95_ms", "mean_cost"]},
+        {"id": "failure-review", "title": "从失败制定下一次改进", "tasks": ["人工审阅至少十个失败案例。", "将问题归因到数据、检索、工具或最终推理。", "选择一项改动，建立防止退化的固定回归集。"], "evidence": "提供失败分类与下一次改进的可验证假设。", "metrics": ["reviewed_failures", "regression_cases"]}
+      ]
+    }
+  ]
+}
