@@ -60,7 +60,7 @@ def main() -> None:
                 expect(page.get_by_role("heading", name="你好，学习者。")).to_be_visible()
                 page.screenshot(path=str(args.output / "dashboard.png"), full_page=True)
                 page.get_by_role("link", name="学习路线", exact=True).click()
-                expect(page.get_by_role("heading", name="一步步，构建完整的能力。")).to_be_visible()
+                expect(page.get_by_role("heading", name="学习路线")).to_be_visible()
                 page.locator('a[href="#lesson/complexity"]').click()
                 expect(page.locator("#quiz-form")).to_be_visible()
                 lesson = LearningCatalog(base.project_root / "content").lesson("complexity")
@@ -105,7 +105,9 @@ def main() -> None:
                 code_download.value.save_as(str(args.output / "solution.cpp"))
                 assert (args.output / "solution.cpp").read_text(encoding="utf-8") == original_draft
                 page.locator("#submit-code").click()
-                expect(page.locator("#editor-results")).to_contain_text("答案错误", timeout=30000)
+                expect(page.locator("#editor-results .result-title strong")).to_have_text(
+                    "答案错误", timeout=30000
+                )
                 expect(page.locator("#toast")).not_to_be_visible()
                 page.screenshot(path=str(args.output / "training.png"), full_page=True)
                 page.get_by_role("button", name="写入错题本", exact=True).click()
@@ -155,7 +157,7 @@ def main() -> None:
                 expect(page.locator(".search-result")).to_have_count(2)
                 page.keyboard.press("Escape")
                 page.goto(url + "/#projects")
-                expect(page.get_by_role("heading", name="做出能被复现的作品。")).to_be_visible()
+                expect(page.get_by_role("heading", name="项目工坊")).to_be_visible()
                 page.locator('a[href="#projects/retrieval-engine"]').click()
                 expect(page.locator("#project-evidence-form")).to_be_visible()
                 page.locator('#project-evidence-form textarea[name="summary"]').fill(
@@ -200,6 +202,15 @@ def main() -> None:
                 mobile_page.get_by_role("link", name="题目训练", exact=True).click()
                 expect(mobile_page.locator(".problem-card")).to_have_count(12)
                 mobile_page.goto(url + "/#lab/sum")
+                expect(mobile_page.locator("#code-editor")).to_be_visible()
+                expect(mobile_page.locator("#problem-panel")).not_to_be_visible()
+                mobile_page.get_by_role("button", name="题目", exact=True).click()
+                expect(mobile_page.locator("#problem-panel")).to_be_visible()
+                expect(mobile_page.locator("#code-editor")).not_to_be_visible()
+                mobile_page.get_by_role("button", name="测试结果", exact=True).click()
+                expect(mobile_page.locator("#editor-results")).to_be_visible()
+                expect(mobile_page.locator("#problem-panel")).not_to_be_visible()
+                mobile_page.get_by_role("button", name="代码", exact=True).click()
                 expect(mobile_page.locator("#code-editor")).to_be_visible()
                 assert mobile_page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (
                     "Mobile lab overflows"

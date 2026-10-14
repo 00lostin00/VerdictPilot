@@ -30,6 +30,7 @@ let learner = localStorage.getItem('verdictpilot.learner');
 if (!learner) { learner = 'learner_' + crypto.randomUUID().replaceAll('-',''); localStorage.setItem('verdictpilot.learner', learner); }
 const state = {learner, health:null, catalog:null, problemIndex:null, lesson:null, problem:null, routeToken:0, runOffset:0, tag:'全部', difficulty:'全部', completion:'全部', sort:'默认顺序', problemSearch:'', currentRun:null, templateUndo:null};
 const saveQueues = new Map();
+const unsavedForms = new Set();
 const draftKey = id => `verdictpilot.draft.${state.learner}.${id}`;
 const noteKey = id => `verdictpilot.note.${state.learner}.${id}`;
 // Serialize saves per record so slower, older requests cannot overwrite newer edits.
@@ -86,10 +87,13 @@ function markdown(value) {
   closeList(); if(code)html+=`<pre><code>${escape(buffer.join('\n'))}</code></pre>`;return html;
 }
 function heading(title,subtitle,eyebrow,action='') {
-  return `<div class="page-heading"><div><div class="eyebrow">${escape(eyebrow)}</div><h1>${escape(title)}</h1><p>${escape(subtitle)}</p></div>${action}</div>`;
+  return `<div class="page-heading"><div><h1>${escape(title)}</h1><p>${escape(subtitle)}</p></div>${action}</div>`;
 }
 function empty(title,description,action='',compact=false) {
   return `<div class="empty-state ${compact?'compact':''}">${icon('layers')}<h3>${escape(title)}</h3><p>${escape(description)}</p>${action}</div>`;
+}
+function pageLoading() {
+  return '<div class="page-loading" role="status"><p>正在读取你的学习记录…</p><div class="skeleton-heading" aria-hidden="true"></div><div class="skeleton-row" aria-hidden="true"></div><div class="skeleton-row" aria-hidden="true"></div><div class="skeleton-row" aria-hidden="true"></div></div>';
 }
 function activityChart(items) {
   const max=Math.max(1,...items.map(x=>x.count));
@@ -102,18 +106,18 @@ function metricCards(data) {
 }
 function runTable(items) {
   if(!items.length)return empty('这里将留下你的实践记录','做一次题目提交或代码诊断，结果和执行证据会保存在这里。','<a class="button small" href="#lab/sum">开始第一次练习</a>',true);
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>任务</th><th>结果</th><th class="hide-mobile">耗时</th><th>时间</th><th></th></tr></thead><tbody>${items.map(r=>`<tr><td>${escape(r.title)}<div class="muted" style="font-size:9px">${r.kind==='submission'?'代码训练':'Agent 诊断'}</div></td><td>${badge(r.verdict||r.status)}</td><td class="hide-mobile">${r.elapsed_ms ? (r.elapsed_ms/1000).toFixed(2)+' s' : '—'}</td><td>${shortDate(r.created_at)}</td><td><a class="text-link" href="#run/${r.id}">详情 ↗</a></td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>任务</th><th>结果</th><th class="hide-mobile">耗时</th><th>时间</th><th></th></tr></thead><tbody>${items.map(r=>`<tr><td>${escape(r.title)}<div class="muted" style="font-size:12px">${r.kind==='submission'?'代码训练':'Agent 诊断'}</div></td><td>${badge(r.verdict||r.status)}</td><td class="hide-mobile">${r.elapsed_ms ? (r.elapsed_ms/1000).toFixed(2)+' s' : '—'}</td><td>${shortDate(r.created_at)}</td><td><a class="text-link" href="#run/${r.id}">详情 ↗</a></td></tr>`).join('')}</tbody></table></div>`;
 }
 async function dashboardView() {
   const data=await api('/v1/dashboard'); state.dashboard=data; updateProfile(data.profile);
-  const next=data.recommendations[0]; const percent=Math.round(data.metrics.lessons_passed/data.metrics.lessons_total*100);
-  return heading(`你好，${data.profile.display_name}。`,'从一个小任务开始，把今天的理解落实到代码。','YOUR LEARNING SPACE',`<span class="date-label">${new Date().toLocaleDateString('zh-CN',{timeZone:'Asia/Shanghai',month:'long',day:'numeric',weekday:'long'})}</span>`)+
-  `<section class="hero"><div class="hero-copy"><div class="hero-label">LEARN / BUILD / VERIFY</div><h2>把今天学到的知识，<br>写进下一次通过的代码。</h2><p>${next?`下一课 · ${escape(next.title)} · 约 ${next.minutes} 分钟`:'课程测验已完成，继续用真实练习检验自己的理解。'}</p><div class="hero-actions"><a class="button dark" href="${next?'#lesson/'+next.id:'#problems'}">${next?'继续学习':'进入题目训练'} ${icon('arrow')}</a><a class="text-link" href="#lab/sum">打开代码工作台 →</a></div></div><div class="hero-visual" aria-hidden="true"><div class="orbital"></div><span class="float-symbol">✳</span><div class="float-card"><div class="mini-label">LEARNING IN PROGRESS</div><h3>${next?escape(next.title):'继续挑战下一道题'}</h3><div class="progress"><span style="width:${percent}%"></span></div><small>${data.metrics.lessons_passed} / ${data.metrics.lessons_total} 节测验通过</small></div><div class="float-token">&lt; learn. verify. repeat /&gt;</div></div></section>`+
-  metricCards(data)+`<div class="dashboard-grid"><div><div class="section-heading"><h2>你的学习路线<small>6 条路线 · 从基础到交付</small></h2><a href="#courses" class="text-link">查看全部 ↗</a></div><div class="track-grid">${data.tracks.map((t,i)=>`<a class="track-card" href="#courses/${t.id}"><div class="track-top"><div class="track-icon ${t.color}">${icon(t.icon)}</div><span class="track-number">PATH / 0${i+1}</span></div><h3>${escape(t.title)}</h3><p>${escape(t.subtitle)}</p><div class="progress"><span style="width:${t.passed/t.total*100}%"></span></div><div class="track-meta"><span>${t.passed} / ${t.total} 节测验通过</span><span>开始探索 ↗</span></div></a>`).join('')}</div></div><div><section class="card"><div class="section-heading"><h2>今天的三个小步骤</h2><span class="badge">${data.profile.daily_minutes} MIN / DAY</span></div>${[
+  const next=data.recommendations[0];
+  return heading(`你好，${data.profile.display_name}。`,'继续课程、练一道题，或回看待复习的错误记录。','',`<span class="date-label">${new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'long',day:'numeric',weekday:'long'}).format(new Date())}</span>`)+
+  `<section class="resume-strip" aria-label="下一步学习"><div><span class="badge blue">${next?'下一节推荐课程':'课程测验已完成'}</span><h2>${next?escape(next.title):'选择下一道训练题'}</h2><p>${next?`约 ${next.minutes} 分钟。阅读推导，完成实践与测验；笔记随输入保存。`:'继续用题库测试检验理解，保存实际运行与复习证据。'}</p></div><div class="resume-actions"><a class="button primary" href="${next?'#lesson/'+next.id:'#problems'}">${next?'继续学习':'进入题目训练'} ${icon('arrow')}</a><a class="button" href="#lab/sum">打开代码工作台</a></div></section>`+
+  metricCards(data)+`<div class="dashboard-grid"><div><div class="section-heading"><h2>学习路线<small>${data.tracks.length} 条路线</small></h2><a href="#courses" class="text-link">查看全部</a></div><div class="track-grid">${data.tracks.map(t=>`<a class="track-card" href="#courses/${t.id}"><div class="track-top"><div class="track-icon ${t.color}">${icon(t.icon)}</div><span class="track-number">${t.total} 节课程</span></div><h3>${escape(t.title)}</h3><p>${escape(t.subtitle)}</p><div class="progress" role="meter" aria-label="${escape(t.title)}测验进度" aria-valuemin="0" aria-valuemax="${t.total}" aria-valuenow="${t.passed}"><span style="width:${t.passed/t.total*100}%"></span></div><div class="track-meta"><span>${t.passed} / ${t.total} 节测验通过</span><span>打开路线</span></div></a>`).join('')}</div></div><div><section class="card"><div class="section-heading"><h2>今天的练习安排</h2><span class="badge">计划 ${data.profile.daily_minutes} 分钟</span></div>${[
     [next?next.title:'继续挑战新题目',next?`理解核心概念 · ${next.minutes} 分钟`:'把已学方法用于新问题',next?'#lesson/'+next.id:'#problems','去学习'],
-    ['用代码检验自己的理解','编译、测试、反例，留下可复查结果','#lab/sum','去训练'],
-    [data.metrics.due_reviews?`${data.metrics.due_reviews} 道错题等待复习`:'把一次错误变成教训','先解释根因，再重写与复测','#reviews','去复盘'],
-  ].map((t,i)=>`<div class="today-task"><span class="task-num">0${i+1}</span><div><h3>${escape(t[0])}</h3><p>${t[1]}</p><a class="text-link" href="${t[2]}">${t[3]} →</a></div></div>`).join('')}</section><section class="card"><div class="section-heading"><h2>学习节奏</h2><a class="text-link" href="#insights">统计 ↗</a></div>${activityChart(data.activity)}</section></div></div><section class="recent-section"><div class="section-heading"><h2>最近的实践<small>每次运行，都有迹可循</small></h2><a href="#runs" class="text-link">所有记录 ↗</a></div>${runTable(data.recent_runs)}</section>`;
+    ['用代码检验理解','编译、测试、反例，留下可复查结果','#lab/sum','去训练'],
+    [data.metrics.due_reviews?`${data.metrics.due_reviews} 道错题等待复习`:'记录一次错误的根因','解释根因，再重写与复测','#reviews','去复盘'],
+  ].map((t,i)=>`<div class="today-task"><span class="task-num" aria-hidden="true">${icon(['book','code','repeat'][i])}</span><div><h3>${escape(t[0])}</h3><p>${t[1]}</p><a class="text-link" href="${t[2]}">${t[3]}</a></div></div>`).join('')}</section><section class="card"><div class="section-heading"><h2>学习节奏</h2><a class="text-link" href="#insights">查看统计</a></div>${activityChart(data.activity)}</section></div></div><section class="recent-section"><div class="section-heading"><h2>最近运行</h2><a href="#runs" class="text-link">所有记录</a></div>${runTable(data.recent_runs)}</section>`;
 }
 const metricLabels={documents:'文档数',queries:'查询数',hit_at_3:'hit@3（0–1）',mrr:'MRR（0–1）',p95_ms:'P95 延迟（ms）',tests_passed:'通过测试数',generator_cases:'生成测试数',oracle_tests:'基线测试数',counterexamples:'反例数',reduction_ratio:'缩减比例（0–1）',tool_success_rate:'工具成功率（0–1）',cases:'评测样本数',diagnosis_accuracy:'诊断准确率（0–1）',repair_pass_rate:'修复通过率（0–1）',contract_tests:'契约测试数',recovery_tests:'恢复测试数',orphan_jobs:'遗留任务数',cleanup_tests:'资源清理测试数',requests:'请求数',rejection_rate:'拒绝率（0–1）',queue_p95_ms:'排队 P95（ms）',execution_p95_ms:'执行 P95（ms）',record_count:'运行记录数',trace_coverage:'轨迹覆盖率（0–1）',grader_tests:'评分器测试数',calibration_cases:'校准样本数',mean_cost:'平均单次费用（按报告币种）',reviewed_failures:'审阅失败数',regression_cases:'回归用例数'};
 function evidenceForm(project,milestone) {
@@ -122,7 +126,7 @@ function evidenceForm(project,milestone) {
 }
 async function projectsView(id,token=state.routeToken) {
   const data=await api('/v1/projects');if(token!==state.routeToken)return '';state.projectData=data;
-  if(!id) return heading('做出能被复现的作品。','四个工程项目，从当前平台出发，逐步补齐检索、验证、可靠性与评测能力。','PROJECT WORKSHOP')+`<div class="notice">${icon('terminal')}<div>这里记录的是你实际实现、运行和测量的里程碑证据。课程测验只是起点；项目需要独立代码、固定数据与可复现报告。</div></div><div class="review-grid">${data.items.map(p=>{const recorded=data.evidence.filter(e=>e.project_id===p.id).length;return `<a class="track-card" href="#projects/${p.id}"><div class="track-top"><span class="track-icon ${p.color}">${icon(p.icon)}</span><span class="track-number">${p.category}</span></div><h2 style="font-size:17px;margin-bottom:10px">${escape(p.title)}</h2><p style="font-size:12px;line-height:1.9">${escape(p.description)}</p><div class="tags"><span class="tag">建议 ${p.duration}</span><span class="tag">${p.milestones.length} 个里程碑</span></div><div class="progress"><span style="width:${recorded/p.milestones.length*100}%"></span></div><div class="track-meta"><span>${recorded} / ${p.milestones.length} 个里程碑已记录证据</span><span>查看实施计划 →</span></div></a>`;}).join('')}</div>`;
+  if(!id) return heading('项目工坊','四个工程项目，从当前平台出发，逐步补齐检索、验证、可靠性与评测能力。','PROJECT WORKSHOP')+`<div class="notice">${icon('terminal')}<div>这里记录的是你实际实现、运行和测量的里程碑证据。课程测验只是起点；项目需要独立代码、固定数据与可复现报告。</div></div><div class="review-grid">${data.items.map(p=>{const recorded=data.evidence.filter(e=>e.project_id===p.id).length;return `<a class="track-card" href="#projects/${p.id}"><div class="track-top"><span class="track-icon ${p.color}">${icon(p.icon)}</span><span class="track-number">${p.category}</span></div><h2 style="font-size:17px;margin-bottom:10px">${escape(p.title)}</h2><p style="font-size:14px;line-height:1.9">${escape(p.description)}</p><div class="tags"><span class="tag">建议 ${p.duration}</span><span class="tag">${p.milestones.length} 个里程碑</span></div><div class="progress"><span style="width:${recorded/p.milestones.length*100}%"></span></div><div class="track-meta"><span>${recorded} / ${p.milestones.length} 个里程碑已记录证据</span><span>查看实施计划 →</span></div></a>`;}).join('')}</div>`;
   const p=data.items.find(p=>p.id===id);if(!p)throw new Error('项目不存在');state.currentProject=p;
   const m=p.milestones.find(m=>m.id===state.selectedMilestone)||p.milestones[0];state.selectedMilestone=m.id;
   return heading(p.title,p.description,p.category,'<a href="#projects" class="button">← 项目工坊</a>')+`<div class="notice">${icon('network')}<div>${escape(p.architecture)}</div></div><div class="reading-layout"><article class="article"><div class="reading-content">${markdown(p.body)}</div><h2 class="stack-gap">实施里程碑</h2>${p.milestones.map((m,i)=>{const e=data.evidence.find(e=>e.project_id===p.id&&e.milestone_id===m.id);return `<section class="exercise-box"><div class="section-heading"><h3>0${i+1} · ${escape(m.title)}</h3><span class="badge ${e?'green':''}">${e?'已记录证据':'待实践'}</span></div><ol>${m.tasks.map(t=>`<li>${escape(t)}</li>`).join('')}</ol><p class="muted">交付：${escape(m.evidence)}</p>${e?`<p class="muted stack-gap">记录：${escape(e.summary)}<br><code>${escape(e.command)}</code><br>${escape(e.artifact)}</p>`:''}</section>`;}).join('')}</article><aside class="lesson-aside"><section class="card"><h3>记录一次真实的进展</h3><label class="form-field"><span>选择里程碑</span><select id="milestone-select">${p.milestones.map(x=>`<option value="${x.id}" ${x.id===m.id?'selected':''}>${escape(x.title)}</option>`).join('')}</select></label><div id="project-evidence-panel">${evidenceForm(p,m)}</div></section></aside></div>`;
@@ -130,7 +134,7 @@ async function projectsView(id,token=state.routeToken) {
 async function coursesView(trackId) {
   const data=await api('/v1/catalog'); state.catalog=data;
   const passed=new Set(Object.keys(data.progress).filter(k=>(data.progress[k].best_score||0)>=80));
-  return heading('一步步，构建完整的能力。','算法思维与 Agent 工程并行推进，每课都有推导、实践任务和测验。','LEARNING PATHS')+
+  return heading('学习路线','算法思维与 Agent 工程并行推进，每课都有推导、实践任务和测验。','LEARNING PATHS')+
   `<div class="filter-bar"><a class="filter-chip ${trackId?'':'active'}" href="#courses">全部路线</a>${data.tracks.map(t=>`<a class="filter-chip ${t.id===trackId?'active':''}" href="#courses/${t.id}">${escape(t.title)}</a>`).join('')}</div>`+
   data.tracks.filter(t=>!trackId||t.id===trackId).map((t,index)=>{
     const lessons=data.lessons.filter(l=>l.track_id===t.id);
@@ -161,18 +165,19 @@ function problemCards() {
   const items=filteredProblems();
   return items.length?items.map(p=>{
     const progress=data.progress[p.id];
-    return `<article class="problem-card"><div class="track-top"><span class="badge ${p.difficulty==='进阶'?'orange':p.difficulty==='中等'?'blue':'green'}">${p.difficulty}</span><span class="track-number">${escape(p.id)}</span></div><h3>${escape(p.title)}</h3><p>${escape(p.description)}</p><div class="tags">${p.tags.map(t=>`<span class="tag">${escape(t)}</span>`).join('')}</div><div class="problem-bottom"><small>${progress?.passed?'✓ 题库测试通过':progress?`${progress.attempts} 次提交`:'等待第一次练习'}</small><a href="#lab/${p.id}" class="text-link">开始训练 →</a></div></article>`;
+    return `<article class="problem-card"><div class="track-top"><span class="badge ${p.difficulty==='进阶'?'orange':p.difficulty==='中等'?'blue':'green'}">${p.difficulty}</span><span class="track-number">${escape(p.id)}</span></div><div class="problem-copy"><h3><a href="#lab/${p.id}">${escape(p.title)}</a></h3><p>${escape(p.description)}</p><div class="tags">${p.tags.map(t=>`<span class="tag">${escape(t)}</span>`).join('')}</div></div><div class="problem-bottom"><small>${progress?.passed?'✓ 题库测试通过':progress?`${progress.attempts} 次提交`:'等待第一次练习'}</small><a href="#lab/${p.id}" class="text-link">开始训练 →</a></div></article>`;
   }).join(''):empty('没有匹配的题目','试试其他关键词或清除筛选。','<button class="button" data-action="clear-filters">清除筛选</button>');
 }
 function refreshProblems() {
   const list=$('#problem-list');if(!list)return;
   list.innerHTML=problemCards();
-  $('#problem-count').textContent=`${filteredProblems().length} / ${state.problemIndex.items.length} 道题`;
+  $('#problem-count').textContent=`${filteredProblems().length} / ${state.problemIndex.items.length} 道题`;syncProblemFilters();
 }
 async function problemsView() {
   state.problemIndex=await api('/v1/problems');
+  for(const key of ['tag','difficulty','completion','sort','problemSearch'])if(state.routeQuery.has(key))state[key]=state.routeQuery.get(key);
   const tags=['全部',...new Set(state.problemIndex.items.flatMap(p=>p.tags))];
-  return heading('把理解，落实到代码。','题面、分层提示、代码草稿与固定测试，组成一次完整训练。','PRACTICE LIBRARY','<a class="button" href="#diagnose">诊断自己的题目 ↗</a>')+`<div class="filter-bar"><input class="filter-input" id="problem-search" aria-label="搜索训练题" placeholder="搜索题目或算法…" value="${escape(state.problemSearch)}"><select id="difficulty-filter" aria-label="难度筛选">${['全部','入门','基础','中等','进阶'].map(d=>`<option ${d===state.difficulty?'selected':''}>${d}</option>`).join('')}</select><select id="completion-filter" aria-label="完成状态">${['全部','未提交','有提交','已通过'].map(d=>`<option ${d===state.completion?'selected':''}>${d}</option>`).join('')}</select><select id="problem-sort" aria-label="题目排序">${['默认顺序','难度优先','未通过优先'].map(d=>`<option ${d===state.sort?'selected':''}>${d}</option>`).join('')}</select></div><div class="filter-bar">${tags.map(t=>`<button class="filter-chip ${t===state.tag?'active':''}" data-action="filter-tag" data-tag="${escape(t)}" aria-pressed="${t===state.tag}">${escape(t)}</button>`).join('')}</div><div class="filter-summary"><strong id="problem-count">${filteredProblems().length} / ${state.problemIndex.items.length} 道题</strong><button class="button small ghost" data-action="clear-filters">清除筛选</button></div><div id="problem-list" class="problem-list">${problemCards()}</div>`;
+  return heading('题目训练','题面、分层提示、代码草稿与固定测试，组成一次完整训练。','PRACTICE LIBRARY','<a class="button" href="#diagnose">诊断自己的题目 ↗</a>')+`<div class="filter-bar"><input class="filter-input" id="problem-search" aria-label="搜索训练题" placeholder="搜索题目或算法…" value="${escape(state.problemSearch)}"><select id="difficulty-filter" aria-label="难度筛选">${['全部','入门','基础','中等','进阶'].map(d=>`<option ${d===state.difficulty?'selected':''}>${d}</option>`).join('')}</select><select id="completion-filter" aria-label="完成状态">${['全部','未提交','有提交','已通过'].map(d=>`<option ${d===state.completion?'selected':''}>${d}</option>`).join('')}</select><select id="problem-sort" aria-label="题目排序">${['默认顺序','难度优先','未通过优先'].map(d=>`<option ${d===state.sort?'selected':''}>${d}</option>`).join('')}</select></div><div class="filter-bar">${tags.map(t=>`<button class="filter-chip ${t===state.tag?'active':''}" data-action="filter-tag" data-tag="${escape(t)}" aria-pressed="${t===state.tag}">${escape(t)}</button>`).join('')}</div><div class="filter-summary"><strong id="problem-count">${filteredProblems().length} / ${state.problemIndex.items.length} 道题</strong><button class="button small ghost" data-action="clear-filters">清除筛选</button></div><div id="problem-list" class="problem-list">${problemCards()}</div>`;
 }
 function problemTab(name) {
   const p=state.problem;
@@ -181,7 +186,7 @@ function problemTab(name) {
   return `<div class="problem-statement"><span class="badge blue">${p.difficulty}</span><h2>${escape(p.title)}</h2><p>${escape(p.statement)}</p><div class="tags">${p.tags.map(t=>`<span class="tag">${escape(t)}</span>`).join('')}</div><h3>输入格式</h3><p>${escape(p.input_format)}</p><h3>输出格式</h3><p>${escape(p.output_format)}</p><h3>数据范围</h3><p>${escape(p.constraints)}</p><h3>样例</h3>${p.samples.map((s,i)=>`<div class="sample"><div><small>输入 ${i+1}</small><pre>${escape(s.input)}</pre></div><div><small>输出 ${i+1}</small><pre>${escape(s.expected_output)}</pre></div></div>`).join('')}</div>`;
 }
 function executionNotice() {
-  return state.health?.execution_backend==='disabled'?`<div class="notice">${icon('alert')}<div>代码执行尚未开启。自己练习时用 <code>uv run --frozen verdictpilot serve --trusted-local</code> 启动，即可编译运行自己的 C++ 代码。课程、检索、笔记功能已可使用。</div></div>`:'';
+  return state.health?.execution_backend==='disabled'?`<div class="notice">${icon('alert')}<div><strong>当前未开启代码执行。</strong>仍可编辑、保存代码，阅读课程与检索资料。运行环境说明见 <a class="text-link" href="#settings">空间设置</a>。</div></div>`:'';
 }
 async function labView(id='sum',token=state.routeToken) {
   const p=await api('/v1/problems/'+encodeURIComponent(id));if(token!==state.routeToken)return ''; state.problem=p; state.currentRun=null;state.templateUndo=null;
@@ -189,7 +194,7 @@ async function labView(id='sum',token=state.routeToken) {
   const lastRun=sessionStorage.getItem(`verdictpilot.run.${state.learner}.${id}`);
   if(lastRun){try{const run=await api('/v1/runs/'+encodeURIComponent(lastRun));if(token!==state.routeToken)return '';state.currentRun=run;}catch{sessionStorage.removeItem(`verdictpilot.run.${state.learner}.${id}`);}}
   const previous=state.currentRun;
-  return heading('训练工作台',p.title,'CODE / TEST / REFLECT',`<a class="button" href="#problems">← 题目列表</a>`)+executionNotice()+`<div class="lab-layout"><section class="lab-problem"><div class="tab-bar"><button class="tab-button active" data-action="problem-tab" data-tab="statement">题目说明</button><button class="tab-button" data-action="problem-tab" data-tab="hints">分层提示</button><button class="tab-button" data-action="problem-tab" data-tab="editorial">思路复盘</button></div><div class="tab-panel" id="problem-panel">${problemTab('statement')}</div></section><section class="lab-editor"><div class="editor-toolbar"><strong>${icon('code')} solution.cpp <span class="badge">C++20</span></strong><div class="editor-tools"><button data-action="copy-code" aria-label="复制代码">复制</button><button data-action="download-code" aria-label="下载代码">下载</button><button data-action="restore-template">恢复模板</button><button data-action="undo-template" id="undo-template" hidden>撤销恢复</button></div></div><div class="code-wrap"><div class="line-numbers" id="line-numbers" aria-hidden="true"></div><textarea class="code-editor" id="code-editor" spellcheck="false" aria-label="C++ 代码编辑器" maxlength="60000">${escape(code)}</textarea></div><div class="editor-meta"><span id="draft-status">${cached!==null||p.draft?'草稿已恢复':'自动保存草稿'}</span><span id="cursor-position">Ln 1, Col 1</span></div><div class="editor-footer"><small>Tab 缩进 · Ctrl S 保存 · Ctrl Enter 提交</small><div><button class="button small" data-action="save-draft">保存</button><button class="button primary" data-action="submit-code" id="submit-code" ${previous&&['queued','running'].includes(previous.status)?'disabled':''}>运行测试 ${icon('arrow')}</button></div></div><div id="editor-results" class="editor-results">${previous&&!['queued','running'].includes(previous.status)?executionResult(previous):empty(previous?'已恢复上一次任务':'用一次运行，验证你的想法',previous?'正在读取执行进度，结果保存在运行记录。':'测试结果将列出实际输出与预期输出。当前题库结果仅代表这些固定用例。','',true)}</div></section></div>`;
+  return heading('训练工作台',p.title,'CODE / TEST / REFLECT',`<a class="button" href="#problems">← 题目列表</a>`)+executionNotice()+`<div class="lab-mode-switch" role="group" aria-label="训练工作区"><button class="active" data-action="lab-panel" data-panel="code" aria-pressed="true">代码</button><button data-action="lab-panel" data-panel="statement" aria-pressed="false">题目</button><button data-action="lab-panel" data-panel="results" aria-pressed="false">测试结果</button></div><div class="lab-layout" data-mobile-panel="code"><section class="lab-problem"><div class="tab-bar" role="group" aria-label="题目资料"><button class="tab-button active" aria-pressed="true" data-action="problem-tab" data-tab="statement">题目说明</button><button class="tab-button" aria-pressed="false" data-action="problem-tab" data-tab="hints">分层提示</button><button class="tab-button" aria-pressed="false" data-action="problem-tab" data-tab="editorial">思路复盘</button></div><div class="tab-panel" id="problem-panel">${problemTab('statement')}</div></section><section class="lab-editor"><div class="editor-toolbar"><strong>${icon('code')} solution.cpp <span class="badge">C++20</span></strong><div class="editor-tools"><button data-action="copy-code" aria-label="复制代码">复制</button><button data-action="download-code" aria-label="下载代码">下载</button><button data-action="restore-template">恢复模板</button><button data-action="undo-template" id="undo-template" hidden>撤销恢复</button></div></div><div class="code-wrap"><div class="line-numbers" id="line-numbers" aria-hidden="true"></div><textarea class="code-editor" id="code-editor" name="solution" autocomplete="off" translate="no" spellcheck="false" aria-label="C++ 代码编辑器" maxlength="60000">${escape(code)}</textarea></div><div class="editor-meta"><span id="draft-status">${cached!==null||p.draft?'草稿已恢复':'自动保存草稿'}</span><span id="cursor-position">Ln 1, Col 1</span></div><div class="editor-footer"><small>Tab 缩进 · Ctrl S 保存 · Ctrl Enter 提交</small><div><button class="button small" data-action="save-draft">保存</button><button class="button primary" data-action="submit-code" id="submit-code" ${previous&&['queued','running'].includes(previous.status)?'disabled':''}>运行测试 ${icon('arrow')}</button></div></div><div class="result-heading"><h2>测试结果</h2><span>固定题库用例</span></div><div id="editor-results" class="editor-results" aria-live="polite">${previous&&!['queued','running'].includes(previous.status)?executionResult(previous):empty(previous?'已恢复上一次任务':'用一次运行，验证你的想法',previous?'正在读取执行进度，结果保存在运行记录。':'测试结果将列出实际输出与预期输出。当前题库结果仅代表这些固定用例。','',true)}</div></section></div>`;
 }
 function executionResult(run) {
   const report=run.result?.execution;
@@ -199,20 +204,20 @@ function executionResult(run) {
 }
 async function diagnoseView() {
   const payload=state.diagnosePayload||{title:'网格最短路',statement:'给定 n×m 网格，0 可通行、1 为障碍，求左上角到右下角的最少步数。每次只能上下左右移动。',code:'',test_cases:[]};
-  return heading('让诊断，有依据。','带上题面和代码，结合本地知识、执行结果和历史错题进行分析。','DIAGNOSIS WORKBENCH')+executionNotice()+`<div class="diagnosis-grid"><section class="card"><h2>描述这次问题</h2><form id="diagnose-form"><label class="form-field"><span>题目标题</span><input name="title" value="${escape(payload.title)}" required maxlength="200"></label><label class="form-field"><span>题目说明</span><textarea name="statement" required maxlength="30000">${escape(payload.statement)}</textarea></label><label class="form-field"><span>C++ 代码（可选）</span><textarea name="code" spellcheck="false" style="font-family:Consolas,monospace" maxlength="60000">${escape(payload.code||'')}</textarea></label><label class="form-field"><span>测试用例 JSON（可选）</span><textarea name="tests" spellcheck="false" placeholder='[{"name":"sample","input":"2 3\\n","expected_output":"5\\n"}]'>${payload.test_cases?.length?escape(JSON.stringify(payload.test_cases,null,2)):''}</textarea></label><div class="filter-bar"><label class="form-field"><span>分析方式</span><select name="mode"><option value="hint">分层提示</option><option value="diagnose" selected>代码诊断</option><option value="review">方案复核</option></select></label><label class="form-field"><span>推理来源</span><select name="provider"><option value="offline">离线规则 · 无需 Key</option><option value="openai">模型 Agent · 需要 Key</option></select></label></div><button class="button primary" type="submit">开始诊断 ${icon('arrow')}</button></form></section><section class="card diagnosis-result" id="diagnosis-result"><h2>诊断与证据</h2>${empty('先把问题说清楚','离线规则模式按固定流程整合检索与执行结果；配置 Key 后可使用模型驱动的工具调用。')}</section></div>`;
+  return heading('诊断工作台','带上题面和代码，结合本地知识、执行结果和历史错题进行分析。','DIAGNOSIS WORKBENCH')+executionNotice()+`<div class="diagnosis-grid"><section class="card"><h2>描述这次问题</h2><form id="diagnose-form"><label class="form-field"><span>题目标题</span><input name="title" value="${escape(payload.title)}" required maxlength="200"></label><label class="form-field"><span>题目说明</span><textarea name="statement" required maxlength="30000">${escape(payload.statement)}</textarea></label><label class="form-field"><span>C++ 代码（可选）</span><textarea name="code" spellcheck="false" style="font-family:Consolas,monospace" maxlength="60000">${escape(payload.code||'')}</textarea></label><label class="form-field"><span>测试用例 JSON（可选）</span><textarea name="tests" spellcheck="false" placeholder='[{"name":"sample","input":"2 3\\n","expected_output":"5\\n"}]'>${payload.test_cases?.length?escape(JSON.stringify(payload.test_cases,null,2)):''}</textarea></label><div class="filter-bar"><label class="form-field"><span>分析方式</span><select name="mode"><option value="hint">分层提示</option><option value="diagnose" selected>代码诊断</option><option value="review">方案复核</option></select></label><label class="form-field"><span>推理来源</span><select name="provider"><option value="offline">离线规则 · 无需 Key</option><option value="openai">模型 Agent · 需要 Key</option></select></label></div><button class="button primary" type="submit">开始诊断 ${icon('arrow')}</button></form></section><section class="card diagnosis-result" id="diagnosis-result"><h2>诊断与证据</h2>${empty('先把问题说清楚','离线规则模式按固定流程整合检索与执行结果；配置 Key 后可使用模型驱动的工具调用。')}</section></div>`;
 }
 async function knowledgeView(docId) {
   const docs=await api('/v1/knowledge/documents');
   const document=docId?await api('/v1/knowledge/documents/'+encodeURIComponent(docId)):null;
-  return heading('把知识放在能找到的地方。','搜索算法与工程资料，阅读完整来源，检查片段适用条件。','KNOWLEDGE LIBRARY')+`<form id="knowledge-search-form" class="filter-bar"><input class="filter-input" name="query" placeholder="例如：BFS 入队标记、01 背包倒序" required maxlength="300"><button class="button primary">搜索资料</button></form><div class="knowledge-layout"><section><div class="section-heading"><h2>资料目录</h2><span class="badge">${docs.items.length} 篇</span></div>${docs.items.map(d=>`<a class="document-link" href="#knowledge/${d.id}"><strong>${escape(d.title)} ↗</strong><small>${escape(d.source)}</small></a>`).join('')}</section><section class="article" id="knowledge-content">${document?`<div class="article-header"><span class="badge">${escape(document.source)}</span><h1>${escape(document.title)}</h1></div><div class="reading-content">${markdown(document.body)}</div>`:empty('从一个具体问题开始搜索','来源目录中的文档也可以直接打开。检索排名是相关性信号，使用前仍需核对条件。')}</section></div>`;
+  return heading('知识资料库','搜索算法与工程资料，阅读完整来源，检查片段适用条件。','KNOWLEDGE LIBRARY')+`<form id="knowledge-search-form" class="filter-bar"><input class="filter-input" name="query" placeholder="例如：BFS 入队标记、01 背包倒序" required maxlength="300"><button class="button primary">搜索资料</button></form><div class="knowledge-layout"><section><div class="section-heading"><h2>资料目录</h2><span class="badge">${docs.items.length} 篇</span></div>${docs.items.map(d=>`<a class="document-link" href="#knowledge/${d.id}"><strong>${escape(d.title)} ↗</strong><small>${escape(d.source)}</small></a>`).join('')}</section><section class="article" id="knowledge-content">${document?`<div class="article-header"><span class="badge">${escape(document.source)}</span><h1>${escape(document.title)}</h1></div><div class="reading-content">${markdown(document.body)}</div>`:empty('从一个具体问题开始搜索','来源目录中的文档也可以直接打开。检索排名是相关性信号，使用前仍需核对条件。')}</section></div>`;
 }
 async function reviewsView() {
   const {items}=await api('/v1/reviews');
-  return heading('把错误，变成下一次的优势。','保存有执行证据的错误，用自己的话写教训，再按间隔安排复习。','MISTAKES & REVIEW',`<span class="badge">${items.filter(i=>new Date(i.due_at)<=new Date()).length} 道待复习</span>`)+(items.length?`<div class="review-grid">${items.map(m=>`<article class="review-card"><div class="track-top">${badge(m.symptom)}<span class="badge ${new Date(m.due_at)<=new Date()?'orange':''}">${new Date(m.due_at)<=new Date()?'现在复习':'下次 '+dayDate(m.due_at)}</span></div><h3>${escape(m.problem_title)}</h3><p>${escape(m.lesson)}</p><div class="review-meta">${escape({boundary:'边界条件',complexity:'复杂度',implementation:'实现细节',modeling:'问题建模',other:'其他'}[m.category]||m.category)} · 已复习 ${m.repetitions} 次 · 当前间隔 ${m.interval_days} 天</div><div class="result-actions"><a class="text-link" href="#run/${m.run_id}">原始错误证据 ↗</a>${m.problem_id?`<a class="text-link" href="#lab/${m.problem_id}">重新练习 →</a>`:''}</div><div class="review-controls">${[['again','还没记住'],['hard','想起来很难'],['good','可以复述'],['easy','已熟练']].map(([rating,label])=>`<button class="button small" data-action="review" data-id="${m.id}" data-rating="${rating}">${label}</button>`).join('')}</div></article>`).join('')}</div>`:empty('还没有错题记录','在训练结果里点击“写入错题本”，记下根因和修复方法。没有执行错误证据的记录不能被当作错题。','<a class="button primary" href="#lab/sum">从 A+B 诊断开始</a>'));
+  return heading('错题与复习','保存有执行证据的错误，用自己的话写教训，再按间隔安排复习。','MISTAKES & REVIEW',`<span class="badge">${items.filter(i=>new Date(i.due_at)<=new Date()).length} 道待复习</span>`)+(items.length?`<div class="review-grid">${items.map(m=>`<article class="review-card"><div class="track-top">${badge(m.symptom)}<span class="badge ${new Date(m.due_at)<=new Date()?'orange':''}">${new Date(m.due_at)<=new Date()?'现在复习':'下次 '+dayDate(m.due_at)}</span></div><h3>${escape(m.problem_title)}</h3><p>${escape(m.lesson)}</p><div class="review-meta">${escape({boundary:'边界条件',complexity:'复杂度',implementation:'实现细节',modeling:'问题建模',other:'其他'}[m.category]||m.category)} · 已复习 ${m.repetitions} 次 · 当前间隔 ${m.interval_days} 天</div><div class="result-actions"><a class="text-link" href="#run/${m.run_id}">原始错误证据 ↗</a>${m.problem_id?`<a class="text-link" href="#lab/${m.problem_id}">重新练习 →</a>`:''}</div><div class="review-controls">${[['again','还没记住'],['hard','想起来很难'],['good','可以复述'],['easy','已熟练']].map(([rating,label])=>`<button class="button small" data-action="review" data-id="${m.id}" data-rating="${rating}">${label}</button>`).join('')}</div></article>`).join('')}</div>`:empty('还没有错题记录','在训练结果里点击“写入错题本”，记下根因和修复方法。没有执行错误证据的记录不能被当作错题。','<a class="button primary" href="#lab/sum">从 A+B 诊断开始</a>'));
 }
 async function runsView() {
   const data=await api(`/v1/runs?offset=${state.runOffset}&limit=20`);
-  return heading('每次运行，都能回到现场。','查看提交结果、诊断回答、代码与工具事件，复盘完整过程。','RUN HISTORY')+runTable(data.items)+`<div class="pager"><span>共 ${data.total} 条 · ${Math.min(state.runOffset+1,data.total)}–${Math.min(state.runOffset+20,data.total)}</span><div><button class="button small" data-action="run-page" data-offset="${Math.max(0,state.runOffset-20)}" ${state.runOffset===0?'disabled':''}>上一页</button> <button class="button small" data-action="run-page" data-offset="${state.runOffset+20}" ${state.runOffset+20>=data.total?'disabled':''}>下一页</button></div></div>`;
+  return heading('运行记录','查看提交结果、诊断回答、代码与工具事件，复盘完整过程。','RUN HISTORY')+runTable(data.items)+`<div class="pager"><span>共 ${data.total} 条 · ${Math.min(state.runOffset+1,data.total)}–${Math.min(state.runOffset+20,data.total)}</span><div><button class="button small" data-action="run-page" data-offset="${Math.max(0,state.runOffset-20)}" ${state.runOffset===0?'disabled':''}>上一页</button> <button class="button small" data-action="run-page" data-offset="${state.runOffset+20}" ${state.runOffset+20>=data.total?'disabled':''}>下一页</button></div></div>`;
 }
 async function runView(id) {
   const run=await api('/v1/runs/'+encodeURIComponent(id)); state.currentRun=run;
@@ -221,27 +226,27 @@ async function runView(id) {
 }
 async function insightsView() {
   const data=await api('/v1/dashboard');const verdictTotal=data.verdicts.reduce((a,b)=>a+b.count,0);
-  return heading('看见节奏，也看见薄弱处。','所有统计来自测验与运行记录；实践任务勾选属于自查，不代表工程能力认证。','LEARNING INSIGHTS')+metricCards(data)+`<div class="insights-grid"><section class="card"><h2>最近 14 天的学习活动</h2>${activityChart(data.activity)}<p class="muted stack-gap">共 ${data.metrics.activity_total} 次测验与运行。日期按北京时间统计。</p></section><section class="card"><h2>代码执行结果分布</h2>${data.verdicts.length?data.verdicts.map(v=>`<div class="distribution-row"><span>${escape(verdictNames[v.verdict]||v.verdict)}</span><div class="progress"><span style="width:${v.count/verdictTotal*100}%"></span></div><strong>${v.count}</strong></div>`).join(''):empty('尚无执行数据','完成一次代码训练后，结果分类会显示在这里。','',true)}</section></div><section class="card stack-gap"><h2>按路线查看测验进度</h2>${data.tracks.map(t=>`<div class="distribution-row" style="grid-template-columns:180px 1fr 48px"><span>${escape(t.title)}</span><div class="progress"><span style="width:${t.passed/t.total*100}%"></span></div><strong>${t.passed}/${t.total}</strong></div>`).join('')}</section>`;
+  return heading('学习统计','所有统计来自测验与运行记录；实践任务勾选属于自查，不代表工程能力认证。','LEARNING INSIGHTS')+metricCards(data)+`<div class="insights-grid"><section class="card"><h2>最近 14 天的学习活动</h2>${activityChart(data.activity)}<p class="muted stack-gap">共 ${data.metrics.activity_total} 次测验与运行。日期按北京时间统计。</p></section><section class="card"><h2>代码执行结果分布</h2>${data.verdicts.length?data.verdicts.map(v=>`<div class="distribution-row"><span>${escape(verdictNames[v.verdict]||v.verdict)}</span><div class="progress"><span style="width:${v.count/verdictTotal*100}%"></span></div><strong>${v.count}</strong></div>`).join(''):empty('尚无执行数据','完成一次代码训练后，结果分类会显示在这里。','',true)}</section></div><section class="card stack-gap"><h2>按路线查看测验进度</h2>${data.tracks.map(t=>`<div class="distribution-row" style="grid-template-columns:180px 1fr 48px"><span>${escape(t.title)}</span><div class="progress"><span style="width:${t.passed/t.total*100}%"></span></div><strong>${t.passed}/${t.total}</strong></div>`).join('')}</section>`;
 }
 async function settingsView() {
   const profile=await api('/v1/profile'); updateProfile(profile);
-  return heading('让空间，适合自己的节奏。','管理学习目标和本地档案，导出自己的学习记录与代码证据。','WORKSPACE SETTINGS')+`<div class="settings-grid"><section class="card"><h2>你的学习档案</h2><form id="profile-form" class="stack-gap"><label class="form-field"><span>称呼</span><input name="display_name" value="${escape(profile.display_name)}" required maxlength="40"></label><label class="form-field"><span>当前目标</span><textarea name="goal" maxlength="200">${escape(profile.goal)}</textarea></label><label class="form-field"><span>每日计划时间（分钟）</span><input name="daily_minutes" type="number" min="15" max="240" value="${profile.daily_minutes}" required></label><button class="button primary">保存档案 ${icon('check')}</button></form></section><section class="card"><h2>运行环境与数据</h2><div class="setting-value"><span>平台版本</span><code>${escape(state.health?.version||'0.2.0')}</code></div><div class="setting-value"><span>默认推理来源</span><code>${escape(state.health?.provider||'offline')}</code></div><div class="setting-value"><span>代码执行后端</span><code>${escape(state.health?.execution_backend||'disabled')}</code></div><div class="setting-value"><span>当前本地档案</span><code>${escape(state.learner.slice(0,20))}…</code></div><p class="muted stack-gap">当前版本用于本机个人学习。档案 ID 保存在此浏览器；它不是账户鉴权。数据库保存测验、草稿、提交和错题。</p><button class="button stack-gap" data-action="export">导出我的学习证据 ↗</button><p class="muted stack-gap">启动自己的可信代码练习：<br><code>uv run --frozen verdictpilot serve --trusted-local</code></p><a class="text-link stack-gap" href="/docs" target="_blank" rel="noopener">查看接口文档 ↗</a></section></div>`;
+  return heading('空间设置','管理学习目标和本地档案，导出自己的学习记录与代码证据。','WORKSPACE SETTINGS')+`<div class="settings-grid"><section class="card"><h2>你的学习档案</h2><form id="profile-form" class="stack-gap"><label class="form-field"><span>称呼</span><input name="display_name" value="${escape(profile.display_name)}" required maxlength="40"></label><label class="form-field"><span>当前目标</span><textarea name="goal" maxlength="200">${escape(profile.goal)}</textarea></label><label class="form-field"><span>每日计划时间（分钟）</span><input name="daily_minutes" type="number" min="15" max="240" value="${profile.daily_minutes}" required></label><button class="button primary">保存档案 ${icon('check')}</button></form></section><section class="card"><h2>运行环境与数据</h2><div class="setting-value"><span>平台版本</span><code>${escape(state.health?.version||'0.2.0')}</code></div><div class="setting-value"><span>默认推理来源</span><code>${escape(state.health?.provider||'offline')}</code></div><div class="setting-value"><span>代码执行后端</span><code>${escape(state.health?.execution_backend||'disabled')}</code></div><div class="setting-value"><span>当前本地档案</span><code>${escape(state.learner.slice(0,20))}…</code></div><p class="muted stack-gap">当前版本用于本机个人学习。档案 ID 保存在此浏览器；它不是账户鉴权。数据库保存测验、草稿、提交和错题。</p><button class="button stack-gap" data-action="export">导出我的学习证据 ↗</button><p class="muted stack-gap">启动自己的可信代码练习：<br><code>uv run --frozen verdictpilot serve --trusted-local</code></p><a class="text-link stack-gap" href="/docs" target="_blank" rel="noopener">查看接口文档 ↗</a></section></div>`;
 }
 function updateProfile(profile) {
   const initial=Array.from(profile.display_name)[0]||'学';$('#side-avatar').textContent=initial;$('#top-avatar').textContent=initial;
   $('#side-name').innerHTML=escape(profile.display_name)+'<small>本地学习档案</small>';
 }
 async function render() {
-  const token=++state.routeToken; const [route,arg]=(location.hash.slice(1)||'dashboard').split('/');
+  const token=++state.routeToken; const [routePath,query='']=(location.hash.slice(1)||'dashboard').split('?');const [route,arg]=routePath.split('/');state.routeQuery=new URLSearchParams(query);
   const active={lesson:'courses',lab:'problems',run:'runs'}[route]||route;
-  $('#navigation').innerHTML=nav.map(n=>`${n[0]==='reviews'?'<div class="nav-section">REVIEW & GROW</div>':''}<a href="#${n[0]}" class="nav-link ${n[0]===active?'active':''}" ${n[0]===active?'aria-current="page"':''} title="${n[1]}">${icon(n[2])}<span>${n[1]}</span></a>`).join('');
+  $('#navigation').innerHTML=nav.map(n=>`${n[0]==='reviews'?'<div class="nav-section">记录与复习</div>':''}<a href="#${n[0]}" class="nav-link ${n[0]===active?'active':''}" ${n[0]===active?'aria-current="page"':''} title="${n[1]}">${icon(n[2])}<span>${n[1]}</span></a>`).join('');
   $('#page-label').textContent=nav.find(n=>n[0]===active)?.[1]||'学习空间';$('#sidebar').classList.remove('open');$('#menu-toggle').setAttribute('aria-expanded','false');
-  main.innerHTML='<div class="loading-state"><div class="spinner"></div>正在读取你的学习记录…</div>';
+  main.innerHTML=pageLoading();
   try {
     const views={dashboard:dashboardView,courses:coursesView,lesson:lessonView,problems:problemsView,lab:labView,diagnose:diagnoseView,knowledge:knowledgeView,projects:projectsView,reviews:reviewsView,runs:runsView,run:runView,insights:insightsView,settings:settingsView};
     const html=await (views[route]||dashboardView)(arg,token);
     if(token!==state.routeToken)return;
-    main.innerHTML=html;window.scrollTo({top:0,behavior:'instant'});
+    main.innerHTML=html;enhanceControls();window.scrollTo({top:0,behavior:'instant'});
     if(route==='lab'){updateLines();updateCursor();if(['queued','running'].includes(state.currentRun?.status))pollRun(state.currentRun.id,token).catch(error=>handlePollError(error,token));}
     if(route==='run'&&['queued','running'].includes(state.currentRun?.status)) pollRun(state.currentRun.id,token,'detail').catch(error=>handlePollError(error,token));
     document.title=`${$('#page-label').textContent} · VerdictPilot`;
@@ -305,10 +310,28 @@ async function pollRun(id,token,target='editor') {
     $('#submit-code').disabled=false;
   }
 }
+function setLabPanel(panel) {
+  const layout=$('.lab-layout');if(!layout)return;layout.dataset.mobilePanel=panel;
+  document.querySelectorAll('[data-action="lab-panel"]').forEach(node=>{node.classList.toggle('active',node.dataset.panel===panel);node.setAttribute('aria-pressed',String(node.dataset.panel===panel));});
+}
+function syncProblemFilters() {
+  const query=new URLSearchParams();for(const key of ['tag','difficulty','completion','sort','problemSearch'])query.set(key,state[key]);
+  history.replaceState(null,'','#problems?'+query.toString());
+}
+function enhanceControls() {
+  main.querySelectorAll('input,select,textarea').forEach(node=>{if(!node.name)node.name=node.id||'field';if(!node.hasAttribute('autocomplete'))node.autocomplete='off';});
+  const note=$('#lesson-note');if(note)note.setAttribute('aria-label','课程笔记');
+  const query=$('#knowledge-search-form input');if(query)query.setAttribute('aria-label','搜索算法与工程资料');
+  const count=$('#problem-count');if(count)count.setAttribute('aria-live','polite');
+  const feedback=$('#quiz-feedback');if(feedback)feedback.setAttribute('aria-live','polite');
+  const noteStatus=$('#note-status');if(noteStatus)noteStatus.setAttribute('aria-live','polite');
+  const draft=$('#draft-status');if(draft)draft.setAttribute('aria-live','polite');
+}
 async function submitCode() {
   const button=$('#submit-code'); if(!button||button.disabled)return;button.disabled=true;
   const token=state.routeToken;
   const id=state.problem.id;
+  if(innerWidth<=650)setLabPanel('results');
   try {const data=await post('/v1/problems/'+id+'/submit',{code:$('#code-editor').value});sessionStorage.setItem(`verdictpilot.run.${state.learner}.${id}`,data.run_id);await pollRun(data.run_id,token);}
   catch(error){if(token===state.routeToken){$('#editor-results').innerHTML=`<div class="error-text">${escape(error.message)}</div>`;button.disabled=false;}}
 }
@@ -316,7 +339,10 @@ function mistakeDialog(runId) {
   $('#mistake-dialog')?.remove();
   const dialog=document.createElement('dialog');dialog.id='mistake-dialog';dialog.className='search-dialog';
   dialog.innerHTML=`<div class="card" style="border:0"><h2>把这次错误变成教训</h2><p class="muted" style="margin:8px 0 20px">写下你确认的原因和修复方法，而不只复制诊断建议。</p><form id="mistake-form" data-run="${escape(runId)}"><label class="form-field"><span>错误类别</span><select name="category"><option value="boundary">边界条件</option><option value="implementation">实现细节</option><option value="modeling">问题建模</option><option value="complexity">复杂度</option><option value="other">其他</option></select></label><label class="form-field"><span>我学到的教训</span><textarea name="lesson" required minlength="3" maxlength="3000" placeholder="例如：先查询补数，再插入当前元素，避免元素和自己配对。"></textarea></label><div class="result-actions"><button type="submit" class="button primary">保存并安排复习</button><button type="button" class="button" data-action="close-mistake">取消</button></div></form></div>`;
-  document.body.append(dialog);dialog.showModal();
+  document.body.append(dialog);dialog.setAttribute('aria-label','记录错题教训');dialog.querySelectorAll('input,select,textarea').forEach(node=>node.autocomplete='off');dialog.addEventListener('close',()=>unsavedForms.delete('mistake-form'));dialog.showModal();
+}
+function fieldError(field,message) {
+  const error=document.createElement('p');error.id='tests-error';error.className='field-error';error.textContent=message;field.after(error);field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby',error.id);field.focus();
 }
 async function openSearch() {
   if(!state.catalog)state.catalog=await api('/v1/catalog');
@@ -329,15 +355,22 @@ function searchResults(query) {
   $('#search-results').innerHTML=matches.length?matches.map(i=>`<a class="search-result" href="${i.href}" data-action="search-result">${icon(i.type==='课程'?'book':'code')}${escape(i.title)}<small>${i.type} ↗</small></a>`).join(''):empty('没有找到结果','换一个算法名或课程关键词试试。','',true);
 }
 document.addEventListener('click',async event=>{
+  if(event.target.closest('.skip-link')){event.preventDefault();main.focus();return;}
+  const link=event.target.closest('a[href]');
+  if(link&&unsavedForms.size&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&event.button===0&&link.getAttribute('href').startsWith('#')){
+    if(!window.confirm('当前表单还有未提交的改动。离开会丢失这些改动，是否离开？')){event.preventDefault();return;}
+    unsavedForms.clear();
+  }
   const node=event.target.closest('[data-action]');if(!node)return;
   try {
     switch(node.dataset.action) {
       case 'retry':render();break;
       case 'search':await openSearch();break;
       case 'close-search':case 'search-result':$('#search-dialog').close();break;
-      case 'problem-tab':$('.tab-button.active').classList.remove('active');node.classList.add('active');$('#problem-panel').innerHTML=problemTab(node.dataset.tab);break;
+      case 'problem-tab':document.querySelectorAll('[data-action="problem-tab"]').forEach(item=>{item.classList.toggle('active',item===node);item.setAttribute('aria-pressed',String(item===node));});$('#problem-panel').innerHTML=problemTab(node.dataset.tab);break;
+      case 'lab-panel':setLabPanel(node.dataset.panel);break;
       case 'filter-tag':state.tag=node.dataset.tag;document.querySelectorAll('[data-action="filter-tag"]').forEach(n=>{n.classList.toggle('active',n===node);n.setAttribute('aria-pressed',String(n===node));});refreshProblems();break;
-      case 'clear-filters':state.tag='全部';state.difficulty='全部';state.completion='全部';state.sort='默认顺序';state.problemSearch='';render();break;
+      case 'clear-filters':state.tag='全部';state.difficulty='全部';state.completion='全部';state.sort='默认顺序';state.problemSearch='';history.replaceState(null,'','#problems');render();break;
       case 'save-draft':await saveDraft(true);break;
       case 'copy-code':await navigator.clipboard.writeText($('#code-editor').value);toast('代码已复制');break;
       case 'download-code':{const blob=new Blob([$('#code-editor').value],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=state.problem.id+'-solution.cpp';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('代码文件已导出');break;}
@@ -346,7 +379,7 @@ document.addEventListener('click',async event=>{
       case 'save-note':await saveNote(true);break;
       case 'submit-code':await submitCode();break;
       case 'add-mistake':mistakeDialog(node.dataset.run);break;
-      case 'close-mistake':$('#mistake-dialog').close();break;
+      case 'close-mistake':unsavedForms.delete('mistake-form');$('#mistake-dialog').close();break;
       case 'review':{const group=node.closest('.review-controls');group.querySelectorAll('button').forEach(button=>button.disabled=true);try{await post(`/v1/reviews/${node.dataset.id}/practice`,{rating:node.dataset.rating});toast('复习反馈已保存，下一次时间已更新');if(group.isConnected)render();}catch(error){group.querySelectorAll('button').forEach(button=>button.disabled=false);throw error;}break;}
       case 'run-page':state.runOffset=Number(node.dataset.offset);render();break;
       case 'export':{
@@ -366,8 +399,8 @@ document.addEventListener('submit',async event=>{
       $('#quiz-feedback').innerHTML=`<div class="quiz-feedback ${result.passed?'':'error'}"><strong>${result.score} 分 · ${result.passed?'测验通过':'再回到概念看一看'}</strong>${result.questions.map((q,i)=>`<p style="margin-top:9px">${q.correct?'✓':'↺'} 第 ${i+1} 题：${escape(q.explanation)}</p>`).join('')}</div>`;
       $('#best-score').textContent=Math.max(result.score,state.lesson.progress?.best_score||0)+' 分';state.catalog=null;toast(result.passed?'测验通过，进度已保存':'已记录成绩，可阅读解析后再次尝试');
     } else if(form.id==='diagnose-form') {
-      const tests=String(data.get('tests')).trim();let cases=[];
-      if(tests){try{cases=JSON.parse(tests);}catch{throw new Error('测试用例 JSON 格式不正确');}if(!Array.isArray(cases))throw new Error('测试用例应该是 JSON 数组');}
+      const tests=String(data.get('tests')).trim();let cases=[];$('#tests-error')?.remove();form.elements.tests.removeAttribute('aria-invalid');
+      if(tests){try{cases=JSON.parse(tests);}catch{fieldError(form.elements.tests,'测试用例 JSON 格式不正确。请检查括号和引号，再重新诊断。');throw new Error('测试用例 JSON 格式不正确');}if(!Array.isArray(cases)){fieldError(form.elements.tests,'测试用例应为 JSON 数组，例如 [{"name":"sample","input":"2 3\\n","expected_output":"5\\n"}]。');throw new Error('测试用例应该是 JSON 数组');}}
       const payload={title:data.get('title'),statement:data.get('statement'),code:data.get('code')||null,test_cases:cases,mode:data.get('mode'),provider:data.get('provider'),session_id:state.learner};state.diagnosePayload=payload;
       $('#diagnosis-result').innerHTML='<div class="loading-state"><div class="spinner"></div>正在检索资料并整合证据…</div>';
       const result=await post('/v1/analyze',payload);if(token!==state.routeToken)return;
@@ -385,26 +418,39 @@ document.addEventListener('submit',async event=>{
     } else if(form.id==='mistake-form') {
       await post('/v1/reviews',{run_id:form.dataset.run,category:data.get('category'),lesson:data.get('lesson')});$('#mistake-dialog').close();toast('教训已保存，可以到错题本进行复习');
     }
+    unsavedForms.delete(form.id);
   } catch(error){toast(error.message,true);if(form.id==='diagnose-form'&&token===state.routeToken)$('#diagnosis-result').innerHTML=`<h2>诊断暂未完成</h2><div class="error-text">${escape(error.message)}</div>`;}
   finally {if(button)button.disabled=false;}
 });
 document.addEventListener('input',event=>{
   const node=event.target;
+  if(node.name==='tests'&&node.closest('#diagnose-form')){$('#tests-error')?.remove();node.removeAttribute('aria-invalid');node.removeAttribute('aria-describedby');}
+  const form=node.closest('form');if(form&&['profile-form','project-evidence-form','diagnose-form','mistake-form'].includes(form.id))unsavedForms.add(form.id);
   if(node.id==='problem-search'){state.problemSearch=node.value;refreshProblems();}
   if(node.id==='global-search')searchResults(node.value);
   if(node.id==='code-editor'){updateLines();updateCursor();const id=state.problem.id,code=node.value;localStorage.setItem(draftKey(id),code);$('#draft-status').textContent='正在保存…';clearTimeout(draftTimer);draftTimer=setTimeout(()=>persistDraft(id,code),700);}
   if(node.id==='lesson-note'){const id=state.lesson.id,note=node.value,done=$('#exercise-done').checked;localStorage.setItem(noteKey(id),JSON.stringify({note,exercise_done:done,updated_at:new Date().toISOString()}));clearTimeout(noteTimer);$('#note-status').textContent='正在保存…';noteTimer=setTimeout(()=>persistNote(id,note,done),700);}
 });
 document.addEventListener('change',event=>{
+  const form=event.target.closest('form');if(form&&['profile-form','project-evidence-form','diagnose-form','mistake-form'].includes(form.id))unsavedForms.add(form.id);
   if(event.target.id==='difficulty-filter'){state.difficulty=event.target.value;refreshProblems();}
   if(event.target.id==='completion-filter'){state.completion=event.target.value;refreshProblems();}
   if(event.target.id==='problem-sort'){state.sort=event.target.value;refreshProblems();}
   if(event.target.id==='exercise-done')saveNote();
-  if(event.target.id==='milestone-select'){state.selectedMilestone=event.target.value;$('#project-evidence-panel').innerHTML=evidenceForm(state.currentProject,state.currentProject.milestones.find(m=>m.id===state.selectedMilestone));}
+  if(event.target.id==='milestone-select'){
+    if(unsavedForms.has('project-evidence-form')&&!window.confirm('当前里程碑还有未保存的改动。切换会丢失这些改动，是否切换？')){event.target.value=state.selectedMilestone;return;}
+    unsavedForms.delete('project-evidence-form');state.selectedMilestone=event.target.value;$('#project-evidence-panel').innerHTML=evidenceForm(state.currentProject,state.currentProject.milestones.find(m=>m.id===state.selectedMilestone));enhanceControls();
+  }
 });
 document.addEventListener('keydown',event=>{
+  if(event.target.matches('[data-action="problem-tab"],[data-action="lab-panel"]')&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+    const siblings=[...event.target.parentElement.querySelectorAll('button')];const current=siblings.indexOf(event.target);
+    const next=event.key==='Home'?0:event.key==='End'?siblings.length-1:(current+(event.key==='ArrowRight'?1:-1)+siblings.length)%siblings.length;
+    event.preventDefault();siblings[next].focus();siblings[next].click();
+  }
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();openSearch().catch(e=>toast(e.message,true));}
   if(event.target.id==='code-editor') {
+    if(event.key==='Escape'){event.preventDefault();$('[data-action="save-draft"]').focus();return;}
     if(event.key==='Tab'){
       event.preventDefault();const editor=event.target;const start=editor.selectionStart,end=editor.selectionEnd;
       if(start===end&&!event.shiftKey)editor.setRangeText('    ',start,end,'end');
@@ -427,6 +473,7 @@ document.addEventListener('selectionchange',()=>{if(document.activeElement?.id==
 $('#menu-toggle').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menu-toggle').setAttribute('aria-expanded',String(open));});
 document.addEventListener('click',event=>{if(innerWidth<=650&&!event.target.closest('#sidebar,#menu-toggle')){$('#sidebar').classList.remove('open');$('#menu-toggle').setAttribute('aria-expanded','false');}});
 window.addEventListener('hashchange',()=>{$('#search-dialog').close();render();});
+window.addEventListener('beforeunload',event=>{if(unsavedForms.size){event.preventDefault();event.returnValue='';}});
 async function initialize() {
   try {state.health=await api('/health');$('#connection').textContent=state.health.execution_backend==='disabled'?'离线学习就绪':'代码训练就绪';}
   catch {$('#connection').textContent='服务未连接';$('#connection').classList.add('offline');}

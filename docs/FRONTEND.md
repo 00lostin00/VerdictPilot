@@ -44,6 +44,7 @@ uv run --frozen verdictpilot serve --port 8000
 | Shift Tab | 去除选中行首最多 4 个空格或 1 个 Tab |
 | Ctrl / Cmd S | 保存当前代码到浏览器和服务端 |
 | Ctrl / Cmd Enter | 提交题库测试；执行关闭时明确显示对应结果 |
+| Esc | 离开代码编辑区，将焦点移到保存按钮；后续 Tab 可正常遍历界面 |
 | 复制 | 复制当前代码，使用浏览器 Clipboard API；需安全上下文，localhost 可用 |
 | 下载 | 导出当前编辑内容为 `{题目ID}-solution.cpp` |
 | 恢复模板 | 保存当前内容到临时撤销槽，并替换为该题起始代码 |
@@ -66,7 +67,11 @@ uv run --frozen verdictpilot serve --port 8000
 - 诊断、代码提交和保存均有加载或保存状态；复习反馈提交期间禁用该组按钮，避免重复点击。
 - Ctrl / Cmd K 打开课程与题目搜索；Esc 关闭对话框；标准 Tab 可定位按钮与链接。
 - 主导航用 `aria-current` 标识当前页，筛选标签使用 `aria-pressed`，移动菜单维护 `aria-expanded`。
-- 960 px 以下将长工作区切成单列；650 px 以下导航从菜单打开；390 px 设备下训练和概览没有整页横向滚动。代码自身可以横向滚动，以保持缩进。
+- 960 px 以下将长工作区切成单列；650 px 以下导航从菜单打开。训练页在手机上将代码、题目和测试结果分为三个区域，可直接切换；提交测试后自动打开结果。代码自身可以横向滚动，以保持缩进。
+- 题库采用可扫读的题目行，关键词、标签、难度、完成状态和排序写入地址栏的 hash 查询参数；刷新或分享当前地址可以恢复筛选。
+- 题目资料与手机训练区域的切换按钮支持方向键、Home 和 End，使用 `aria-pressed` 提示当前区域。跳到主内容链接、搜索对话框名称、笔记标签、实时保存反馈均有明确的辅助技术语义。
+- 测试用例 JSON 无法解析时，在输入框下显示如何修正，并将焦点移到该字段；弹窗内容滚动不会连带滚动页面，减少动态效果设置会关闭加载动画与过渡。
+- 代码与笔记自动保存浏览器副本；档案、诊断和项目表单存在未提交修改时，离开页面会提示，避免误导航丢失输入。提交失败保留提醒，成功后解除。
 - `prefers-reduced-motion` 开启时关闭旋转和过渡动画。
 
 ## 验证与截图
@@ -78,7 +83,7 @@ uv run --frozen --extra dev --extra browser python tools/smoke_browser.py --chan
 
 默认使用已安装 Chrome。需要 Playwright 自带 Chromium 时，先执行 `uv run --extra browser playwright install chromium`，再传 `--channel chromium`。
 
-脚本创建临时服务数据与独立浏览器档案，覆盖真实测验、笔记刷新、筛选、模板恢复撤销、Ctrl S、代码下载、WA、复习、参考代码通过、最近结果恢复、离线诊断、轨迹、来源检索、个人设置、项目证据和数据导出。最后用 390 × 844 的移动视口检查概览和训练页面没有横向溢出，同时收集 JavaScript 错误。该流程只执行仓库内的固定测试代码，自动打开的可信本机执行仅存在于测试服务。
+脚本创建临时服务数据与独立浏览器档案，覆盖真实测验、笔记刷新、筛选、模板恢复撤销、Ctrl S、代码下载、WA、复习、参考代码通过、最近结果恢复、离线诊断、轨迹、来源检索、个人设置、项目证据和数据导出。首次错误代码严格断言整体判定为「答案错误」，不会因某个用例中出现错误文本而将整体超时误判为 WA。最后用 390 × 844 的移动视口逐次切换题目、代码、测试结果，并检查概览和训练页面没有横向溢出，同时收集 JavaScript 错误。该流程只执行仓库内的固定测试代码，自动打开的可信本机执行仅存在于测试服务。
 
 测试输出在忽略提交的 `tmp/browser/`。公开截图位于 `docs/screenshots/`；它们来自运行中的工作台，不是静态设计稿。
 
@@ -87,11 +92,19 @@ uv run --frozen --extra dev --extra browser python tools/smoke_browser.py --chan
 | [dashboard.png](screenshots/dashboard.png) | 新学习档案的概览 |
 | [training.png](screenshots/training.png) | 实际答案错误与逐用例输出 |
 | [mobile.png](screenshots/mobile.png) | 390 px 宽度的学习概览 |
+| [problems.png](screenshots/problems.png) | 可组合筛选的题库清单 |
+| [course.png](screenshots/course.png) | 16px 正文与课程笔记边栏 |
+| [diagnosis.png](screenshots/diagnosis.png) | 本地离线诊断与来源资料 |
+| [mobile-training.png](screenshots/mobile-training.png) | 390 px 手机代码训练与区域切换 |
 
 ## 设计与维护
 
-品牌标识由 V 形验证笔画与运行状态点组成，素材见 `web/logo.svg` 与 `docs/assets/`。主题颜色定义在 CSS 根变量中，主要操作用橘红，编辑器和导航用深墨色，阅读区用米白背景。所有素材由本地文件提供；服务显式注册标准 SVG MIME 类型，避免 Windows 注册表将其识别为 `image/svg` 而导致破图。
+品牌标识由 V 形验证笔画与运行状态点组成，素材见 `web/logo.svg` 与 `docs/assets/`。主题颜色定义在 CSS 根变量中：主要操作用深青色，编辑器和导航用偏青深蓝，内容区使用白色与冷灰；暖橙只用于待复习和提醒。中文课程正文为 16 px，控件以 14 px 为主，次级信息为 12 px；代码区使用本地 Cascadia Code / Consolas。所有素材由本地文件提供；服务显式注册标准 SVG MIME 类型，避免 Windows 注册表将其识别为 `image/svg` 而导致破图。
+
+内部页面按任务组织：概览优先展示下一课入口和真实进度；题库是行式清单；课程是长文阅读与笔记边栏；训练工作台保留题面和代码的双栏，结果逐条列出失败输出；诊断按问题输入和证据阅读分区；错题显示原始运行入口和复习动作。页面标题直接标明所在工具，布局不依赖营销标语或装饰插画。
 
 动态题面、笔记、代码、错误和诊断 Markdown 先转义再插入界面，Markdown 只支持小范围语法，不允许原始 HTML。路由异步加载和来源搜索在响应后核对路由序号，避免离开页面后的旧结果写入新页面。
 
 当前未实现语法高亮、语言服务器、代码补全、主题切换、后端取消任务或多端草稿冲突合并。需要扩展编辑能力时，应先保留现有快捷键、保存与执行状态测试，再评估引入编辑器依赖的体积和维护成本。
+
+2026-10-14 Chrome 完整流程验收通过，整体答案错误与修复后通过分别核对；题库 URL 刷新恢复、非法 JSON 行内错误及输入恢复、手机三种区域切换也通过。训练页在 320、390、768、1024 px 下无整页横向溢出，未出现 JavaScript 错误。记录见 [browser-workbench.json](browser-workbench.json)。

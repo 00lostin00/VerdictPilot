@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-12",
+  "date": "2026-10-14",
   "browser": "Chrome",
   "desktop_viewport": [
     1440,
@@ -23,9 +23,20 @@
     "knowledge and global search",
     "project evidence",
     "profile and archive export",
-    "mobile dashboard and training layout"
+    "mobile dashboard and training layout",
+    "problem filters survive URL refresh",
+    "course has readable body and note panel",
+    "invalid test JSON has inline recovery and focus",
+    "training layout at 320 390 768 1024 pixels",
+    "mobile statement code results switching"
   ],
   "javascript_errors": 0,
   "result": "passed",
-  "execution_scope": "fixed repository examples in isolated temporary local service"
+  "execution_scope": "fixed repository examples in isolated temporary local service",
+  "additional_training_widths": [
+    320,
+    768,
+    1024
+  ],
+  "wrong_answer_check": "overall result title must be wrong answer, not a nested case result"
 }
